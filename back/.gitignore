@@ -12,6 +12,7 @@ build/
 # Java
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 hs_err_pid*
@@ -36,5 +37,3 @@ application-local.properties
 .DS_Store
 Thumbs.db
 .vscode/
-
-

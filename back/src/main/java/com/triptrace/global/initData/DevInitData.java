@@ -16,14 +16,14 @@ public class DevInitData {
     @Bean
     ApplicationRunner devInitDataApplicationRunner() {
         return args -> {
-            cmd.runAsync(
-                "npx{{DOT_CMD}}",
-                "--yes",
-                "--package", "typescript@v5",
-                "--package", "openapi-typescript",
-                "openapi-typescript", "http://localhost:8080/v3/api-docs/apiV1",
-                "-o", "../front/src/lib/backend/apiV1/schema.d.ts"
-            );
+//            cmd.runAsync(
+//                "npx{{DOT_CMD}}",
+//                "--yes",
+//                "--package", "typescript@v5",
+//                "--package", "openapi-typescript",
+//                "openapi-typescript", "http://localhost:8080/v3/api-docs/apiV1",
+//                "-o", "../front/src/lib/backend/apiV1/schema.d.ts"
+//            );
         };
     }
 
@@ -67,4 +67,3 @@ public class DevInitData {
         }
     }
 }
-
