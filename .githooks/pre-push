@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# 푸시 전에 현재 브랜치명이 팀 규칙에 맞는지 다시 검사합니다.
+hook_dir=$(dirname "$0")
+
+"$hook_dir/_branch-name-check.sh"
