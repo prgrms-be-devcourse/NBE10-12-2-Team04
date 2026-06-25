@@ -1,0 +1,38 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Spring Boot
+logs/
+*.log
+application-local.yml
+application-local.properties
+.env
+.env.*
+!.env.example
+
+# H2 Database
+*.mv.db
+*.trace.db
+*.h2.db
+*.lock.db
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
