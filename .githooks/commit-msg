@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# Git이 넘겨준 커밋 메시지 파일에서 첫 줄만 검사합니다.
+commit_msg_file=$1
+commit_msg=$(sed -n '1p' "$commit_msg_file")
+
+# 예: feat: 좋아요 엔티티 추가 #12
+if printf '%s\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert): .+ #[0-9]+$'; then
+  exit 0
+fi
+
+# 예: feat: 좋아요 등록 api 추가 # 12
+if printf '%s\n' "$commit_msg" | grep -Eq '^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert): .+ # [0-9]+$'; then
+  exit 0
+fi
+
+cat <<EOF
+커밋 메시지 규칙에 맞지 않습니다: $commit_msg
+
+허용되는 형식:
+  type: 세부 작업내용 #이슈번호
+
+허용되는 타입:
+  feat, fix, docs, style, refactor, test, chore, build, ci, perf, revert
+
+예시:
+  feat: 좋아요 엔티티 추가 #12
+  fix: 로그인 유효성 검사 오류 수정 #6
+EOF
+
+exit 1
