@@ -46,4 +46,17 @@ public class Marker extends BaseEntity {
         this.visitedAt = visitedAt;
         this.source = source;
     }
+    public void modify(
+        BigDecimal centerLat,
+        BigDecimal centerLng,
+        String placeName,
+        LocalDateTime visitedAt,
+        MarkerSource source
+    ) {
+        this.centerLat = centerLat;
+        this.centerLng = centerLng;
+        this.placeName = placeName;
+        this.visitedAt = visitedAt;
+        this.source = source;
+    }
 }
