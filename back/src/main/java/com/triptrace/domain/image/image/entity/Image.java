@@ -2,6 +2,7 @@ package com.triptrace.domain.image.image.entity;
 
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.member.member.entity.Member;
+import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -28,6 +29,10 @@ public class Image extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trip_id", nullable = false)
     private Trip trip;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "post_id", nullable = false)
+    private Post post;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "marker_id")
@@ -63,6 +68,7 @@ public class Image extends BaseEntity {
     public Image(
         Member owner,
         Trip trip,
+        Post post,
         Marker marker,
         String originalFileUrl,
         String thumbnailUrl,
@@ -72,6 +78,7 @@ public class Image extends BaseEntity {
     ) {
         this.owner = owner;
         this.trip = trip;
+        this.post = post;
         this.marker = marker;
         this.originalFileUrl = originalFileUrl;
         this.thumbnailUrl = thumbnailUrl;
