@@ -24,6 +24,8 @@ develop
 feature/issue-1-signup-login
 fix/issue-6-login-validation
 docs/issue-5-readme-rule
+build/issue-26-gradle-dependencies
+chore/issue-26-branch-convention
 ```
 
 ## 커밋 규칙
@@ -44,4 +46,6 @@ feat, fix, docs, style, refactor, test, chore, build, ci, perf, revert
 feat: 좋아요 엔티티 추가 #12
 fix: 로그인 유효성 검사 오류 수정 #6
 docs: 리드미 작성 #5
+build: Gradle 의존성 선언 방식 정리 #26
+chore: 브랜치 네이밍 컨벤션 정리 #26
 ```

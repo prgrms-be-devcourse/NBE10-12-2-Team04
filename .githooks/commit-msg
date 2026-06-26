@@ -26,6 +26,8 @@ cat <<EOF
 예시:
   feat: 좋아요 엔티티 추가 #12
   fix: 로그인 유효성 검사 오류 수정 #6
+  build: Gradle 의존성 선언 방식 정리 #26
+  chore: 브랜치 네이밍 컨벤션 정리 #26
 EOF
 
 exit 1
