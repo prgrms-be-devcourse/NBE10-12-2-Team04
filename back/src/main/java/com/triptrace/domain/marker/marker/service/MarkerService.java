@@ -56,7 +56,9 @@ public class MarkerService {
         postRepository.findById(postId)
             .orElseThrow(() -> new ServiceException("404-1", "게시물을 찾을 수 없습니다."));
 
-        List<Marker> markers = markerRepository.findAllByPostId(postId);
+        List<Marker> markers = markerRepository.findByPostId(postId)
+            .stream()
+            .toList();
 
         List<MarkerResponse> result = markers.stream()
             .map(MarkerResponse::new)
