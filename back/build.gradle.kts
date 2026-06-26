@@ -18,6 +18,8 @@ repositories {
     mavenCentral()
 }
 
+val jjwtVersion = "0.13.0"
+
 dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
@@ -42,9 +44,9 @@ dependencies {
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // JJWT
-    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+    implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
 
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
