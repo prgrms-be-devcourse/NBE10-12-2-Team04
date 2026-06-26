@@ -1,5 +1,6 @@
 package com.triptrace.domain.trip.tripLike.controller;
 
+import com.triptrace.domain.trip.tripLike.entity.TripLike;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
@@ -18,11 +19,27 @@ public class ApiV1TripLikeController {
     public RsData<Void> createLike(
         @RequestParam Long memberId,
         @PathVariable Long tripId) {
+
         tripLikeService.createLike(memberId, tripId);
 
         return new RsData<>(
             "201-1",
-            "%d번 여행기에 좋아요가 등록되었습니다.".formatted(tripId)
+            "좋아요가 등록되었습니다."
         );
     }
+
+    @DeleteMapping("/api/v1/trips/{tripId}/likes")
+    @Transactional
+    public RsData<Void> deleteLike(
+        @RequestParam Long memberId,
+        @PathVariable Long tripId) {
+
+        tripLikeService.deleteLike(memberId, tripId);
+
+        return new RsData<>(
+            "200-1",
+            "좋아요가 취소되었습니다."
+        );
+    }
+
 }

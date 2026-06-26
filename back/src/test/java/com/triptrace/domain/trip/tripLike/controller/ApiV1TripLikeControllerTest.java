@@ -5,6 +5,8 @@ import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
+import com.triptrace.domain.trip.tripLike.entity.TripLike;
+import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,10 +44,12 @@ public class ApiV1TripLikeControllerTest {
     private MemberRepository memberRepository;
     @Autowired
     private TripRepository tripRepository;
+    @Autowired
+    private TripLikeRepository tripLikeRepository;
 
     @Test
     @WithMockUser(username = "test1", roles = "USER")
-    @DisplayName("좋아요 추가 기능에 성공하면 좋아요 수가 1 증가한다.")
+    @DisplayName("좋아요 생성 및 좋아요 수 증가 테스트")
     public void t1() throws Exception {
         Member member = memberRepository.save(new Member(
             "test@test.com",
@@ -72,10 +76,10 @@ public class ApiV1TripLikeControllerTest {
             .andDo(print())
             .andExpect(status().isCreated());
 
+        boolean exists = tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId());
+        assertThat(exists).isEqualTo(true);
+
         Trip found = tripRepository.findById(trip.getId()).orElseThrow();
         assertThat(found.getLikeCount()).isEqualTo(1);
     }
 }
-
-
-
