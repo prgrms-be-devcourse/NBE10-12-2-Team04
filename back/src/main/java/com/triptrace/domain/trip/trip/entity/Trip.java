@@ -37,6 +37,14 @@ public class Trip extends BaseEntity {
     @Column(nullable = false)
     private Long likeCount = 0L;
 
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        this.likeCount--;
+    }
+
     public Trip(
         Member owner,
         String title,
