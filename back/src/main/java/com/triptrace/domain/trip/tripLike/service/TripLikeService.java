@@ -20,7 +20,7 @@ public class TripLikeService {
     private final MemberRepository memberRepository;
     private final TripRepository tripRepository;
 
-    public void tripLike(Long memberId, Long tripId) {
+    public void createLike(Long memberId, Long tripId) {
         Member member = memberRepository.findById(memberId).orElseThrow();
         Trip trip = tripRepository.findById(tripId).orElseThrow();
 
@@ -30,7 +30,7 @@ public class TripLikeService {
         trip.increaseLikeCount();
     }
 
-    public void tripUnlike(Long memberId, Long tripId) {
+    public void deletelike(Long memberId, Long tripId) {
         Member member = memberRepository.findById(memberId).orElseThrow();
         Trip trip = tripRepository.findById(tripId).orElseThrow();
 

@@ -21,13 +21,5 @@ public class TripLikeServiceTest {
     @Autowired
     private TripLikeRepository tripLikeRepository;
 
-    @Test
-    @DisplayName("좋아요 추가")
-    void t1() throws Exception {
-        ResultActions resultActions = mvc
-            .perform(
 
-
-            )
-    }
 }
