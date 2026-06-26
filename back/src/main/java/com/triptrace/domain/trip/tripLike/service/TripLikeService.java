@@ -39,4 +39,8 @@ public class TripLikeService {
         tripLikeRepository.delete(tripLike);
         trip.decreaseLikeCount();
     }
+
+    public List<TripLike> findAll() {
+        return tripLikeRepository.findAll();
+    }
 }

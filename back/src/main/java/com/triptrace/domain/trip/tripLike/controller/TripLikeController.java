@@ -1,10 +1,14 @@
 package com.triptrace.domain.trip.tripLike.controller;
 
+import com.triptrace.domain.trip.tripLike.dto.TripLikeResponse;
+import com.triptrace.domain.trip.tripLike.entity.TripLike;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/trips")
@@ -12,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class TripLikeController {
     private final TripLikeService tripLikeService;
 
-
+    // 좋아요 추가
     @PostMapping("/{tripId}/likes")
     @Transactional
     public RsData<Void> createLike(
@@ -27,6 +31,7 @@ public class TripLikeController {
         );
     }
 
+    // 좋아요 취소
     @DeleteMapping("/{tripId}/likes")
     @Transactional
     public RsData<Void> deleteLike(
@@ -41,4 +46,18 @@ public class TripLikeController {
         );
     }
 
+    // 좋아요 여부 조회
+    @GetMapping("{tripId}/likes/me")
+    @Transactional(readOnly = true)
+    public List<TripLikeResponse> isLiked(
+        @RequestParam Long memberId,
+        @PathVariable Long tripId
+    ) {
+        List<TripLike> tripLikeList = tripLikeService.findAll();
+
+        return tripLikeList
+            .stream()
+            .map(TripLikeResponse::new)
+            .toList();
+    }
 }

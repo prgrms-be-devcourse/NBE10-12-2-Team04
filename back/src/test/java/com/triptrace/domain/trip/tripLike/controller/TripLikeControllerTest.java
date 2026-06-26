@@ -51,7 +51,7 @@ public class TripLikeControllerTest {
 
     @Test
     @WithMockUser(username = "test1", roles = "USER")
-    @DisplayName("좋아요 생성 및 좋아요 수 증가 테스트")
+    @DisplayName("좋아요 추가 및 좋아요 수 증가 테스트")
     public void t1() throws Exception {
         Member member = memberRepository.save(new Member(
             "test@test.com",
@@ -87,7 +87,7 @@ public class TripLikeControllerTest {
 
     @Test
     @WithMockUser(username = "test2", roles = "USER")
-    @DisplayName("좋아요 취소 기능 및 좋아요 취소 수 감소 테스트")
+    @DisplayName("좋아요 취소 및 좋아요 수 감소 테스트")
     public void t2() throws Exception {
         Member member = memberRepository.save(new Member(
             "test@test.com",
