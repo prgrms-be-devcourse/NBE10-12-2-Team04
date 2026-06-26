@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface MarkerRepository extends JpaRepository<Marker, Long> {
 
-    List<Marker> findByPostId(Long postId);
+    List<Marker> findAllByPostId(Long postId);
 }
