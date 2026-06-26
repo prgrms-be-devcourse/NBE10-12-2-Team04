@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -24,9 +25,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -81,5 +83,52 @@ public class ApiV1TripLikeControllerTest {
 
         Trip found = tripRepository.findById(trip.getId()).orElseThrow();
         assertThat(found.getLikeCount()).isEqualTo(1);
+    }
+
+    @Test
+    @WithMockUser(username = "test2", roles = "USER")
+    @DisplayName("좋아요 취소 기능 및 좋아요 취소 수 감소 테스트")
+    public void t2() throws Exception {
+        Member member = memberRepository.save(new Member(
+            "test@test.com",
+            "test1",
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+
+        Trip trip = tripRepository.save(new Trip(
+            member,
+            "test title",
+            "test country",
+            "test city",
+            LocalDateTime.now().minusMonths(12),
+            LocalDateTime.now().minusMonths(6),
+            true
+        ));
+
+        mockMvc
+            .perform(
+                post("/api/v1/trips/1/likes", trip.getId())
+                    .param("memberId", String.valueOf(member.getId()))
+                    .with(csrf()));
+
+        assertThat(tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId())).isTrue();
+        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getLikeCount()).isEqualTo(1);
+
+        mockMvc
+            .perform(
+                delete("/api/v1/trips/1/likes", trip.getId())
+                    .param("memberId", String.valueOf(member.getId()))
+                    .with(csrf()))
+            .andDo(print())
+            .andExpect(status().isOk());
+
+        boolean exists = tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId());
+        assertThat(exists).isFalse();
+
+        Trip found = tripRepository.findById(trip.getId()).orElseThrow();
+        assertThat(found.getLikeCount()).isEqualTo(0);
     }
 }

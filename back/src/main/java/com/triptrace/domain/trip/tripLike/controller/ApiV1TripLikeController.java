@@ -28,7 +28,7 @@ public class ApiV1TripLikeController {
         );
     }
 
-    @DeleteMapping("/api/v1/trips/{tripId}/likes")
+    @DeleteMapping("/{tripId}/likes")
     @Transactional
     public RsData<Void> deleteLike(
         @RequestParam Long memberId,
