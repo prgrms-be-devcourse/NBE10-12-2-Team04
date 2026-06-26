@@ -1,6 +1,5 @@
 package com.triptrace.domain.trip.tripLike.controller;
 
-import com.triptrace.domain.trip.tripLike.entity.TripLike;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/trips")
 @RequiredArgsConstructor
-public class ApiV1TripLikeController {
+public class TripLikeController {
     private final TripLikeService tripLikeService;
 
 

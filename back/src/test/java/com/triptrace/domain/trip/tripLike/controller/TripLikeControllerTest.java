@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 @RequestMapping("/api/v1/trips/{tripId}/likes")
-public class ApiV1TripLikeControllerTest {
+public class TripLikeControllerTest {
     @Autowired
     private MockMvc mvc;
     @Autowired
