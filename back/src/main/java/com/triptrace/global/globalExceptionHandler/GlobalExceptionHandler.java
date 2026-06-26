@@ -10,7 +10,6 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Comparator;
@@ -27,7 +26,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<RsData<Void>> handle(NoSuchElementException ex) {
         return new ResponseEntity<>(
             new RsData<>(
-                "404-1",
+                "404",
                 "해당 데이터가 존재하지 않습니다."
             ),
             NOT_FOUND
@@ -52,7 +51,7 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(
             new RsData<>(
-                "400-1",
+                "400",
                 message
             ),
             BAD_REQUEST
@@ -72,7 +71,7 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(
             new RsData<>(
-                "400-1",
+                "400",
                 msg
             ),
             BAD_REQUEST
@@ -83,7 +82,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<RsData<Void>> handle(HttpMessageNotReadableException ex) {
         return new ResponseEntity<>(
             new RsData<>(
-                "400-1",
+                "400",
                 "요청 본문이 올바르지 않습니다."
             ),
             BAD_REQUEST
@@ -94,7 +93,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<RsData<Void>> handle(MissingRequestHeaderException ex) {
         return new ResponseEntity<>(
             new RsData<>(
-                "400-1",
+                "400",
                 "%s-%s-%s".formatted(
                     ex.getHeaderName(),
                     "NotBlank",
@@ -106,7 +105,6 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ServiceException.class)
-    @ResponseStatus(BAD_REQUEST)
     public ResponseEntity<RsData<Void>> handle(ServiceException ex) {
         RsData<Void> rsData = ex.getRsData();
 

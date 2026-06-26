@@ -1,8 +1,12 @@
 package com.triptrace.global.app;
 
+import com.triptrace.standard.util.Ut;
+import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import tools.jackson.databind.ObjectMapper;
 //import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 //import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -37,16 +41,16 @@ public class AppConfig {
 //        return new BCryptPasswordEncoder();
 //    }
 
-//    @Getter
-//    private static ObjectMapper objectMapper;
-//
-//    @Autowired
-//    public void setObjectMapper(ObjectMapper objectMapper) {
-//        AppConfig.objectMapper = objectMapper;
-//    }
+    @Getter
+    private static ObjectMapper objectMapper;
 
-//    @PostConstruct
-//    public void postConstruct() {
-//        Ut.json.objectMapper = objectMapper;
-//    }
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        AppConfig.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    public void postConstruct() {
+        Ut.json.objectMapper = objectMapper;
+    }
 }
