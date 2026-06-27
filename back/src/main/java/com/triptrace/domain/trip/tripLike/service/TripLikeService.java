@@ -1,6 +1,5 @@
 package com.triptrace.domain.trip.tripLike.service;
 
-import com.triptrace.TriptraceApplication;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
@@ -11,9 +10,6 @@ import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -45,10 +41,6 @@ public class TripLikeService {
 
         tripLikeRepository.delete(tripLike);
         trip.decreaseLikeCount();
-    }
-
-    public List<TripLike> findAll() {
-        return tripLikeRepository.findAll();
     }
 
     public boolean isLiked(Long memberId, Long tripId) {

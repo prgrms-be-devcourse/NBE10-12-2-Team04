@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -147,8 +148,9 @@ public class TripLikeControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "member", roles = "USER")
     @DisplayName("좋아요 여부 조회 테스트")
-    public void t4() {
+    public void t4() throws Exception {
         Member member = memberRepository.save(new Member(
             "member@test.com",
             "member",
@@ -170,7 +172,13 @@ public class TripLikeControllerTest {
 
         tripLikeService.createLike(member.getId(), trip.getId());
 
-        boolean isLiked = tripLikeService.isLiked(member.getId(), trip.getId());
-        assertThat(isLiked).isTrue();
+        mvc.perform(MockMvcRequestBuilders
+                .get("/api/v1/trips/" + trip.getId() + "/likes/me")
+                .param("memberId", String.valueOf(member.getId())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.resultCode").value("200-1"))
+            .andExpect(jsonPath("$.msg").value("좋아요 여부 조회 성공했습니다."))
+            .andExpect(jsonPath("$.data.liked").value(true))
+            .andDo(print());
     }
 }
