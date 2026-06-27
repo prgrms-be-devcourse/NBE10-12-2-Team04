@@ -42,7 +42,7 @@ public class TripLikeController {
     }
 
     // 좋아요 여부 조회
-    @GetMapping("{tripId}/likes/me")
+    @GetMapping("/{tripId}/likes/me")
     public RsData<TripLikeStatusResponse> isLiked(
         @RequestParam Long memberId,
         @PathVariable Long tripId
