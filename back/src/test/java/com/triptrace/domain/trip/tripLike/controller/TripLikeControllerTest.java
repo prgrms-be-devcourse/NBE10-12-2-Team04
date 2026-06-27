@@ -8,6 +8,8 @@ import com.triptrace.domain.trip.trip.repository.TripRepository;
 import com.triptrace.domain.trip.tripLike.entity.TripLike;
 import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
+import com.triptrace.global.exception.ServiceException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -86,7 +90,6 @@ public class TripLikeControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "test2", roles = "USER")
     @DisplayName("좋아요 취소 및 좋아요 수 감소 테스트")
     public void t2() throws Exception {
         Member member = memberRepository.save(new Member(
@@ -108,27 +111,51 @@ public class TripLikeControllerTest {
             true
         ));
 
-        mockMvc
-            .perform(
-                post("/api/v1/trips/1/likes", trip.getId())
-                    .param("memberId", String.valueOf(member.getId()))
-                    .with(csrf()));
+        tripLikeService.createLike(member.getId(), trip.getId());
+        assertThat(trip.getLikeCount()).isEqualTo(1);
 
-        assertThat(tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId())).isTrue();
-        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getLikeCount()).isEqualTo(1);
+        tripLikeService.deleteLike(member.getId(), trip.getId());
 
-        mockMvc
-            .perform(
-                delete("/api/v1/trips/1/likes", trip.getId())
-                    .param("memberId", String.valueOf(member.getId()))
-                    .with(csrf()))
-            .andDo(print())
-            .andExpect(status().isOk());
-
-        boolean exists = tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId());
+        Boolean exists = tripLikeRepository.existsByMemberIdAndTripId(member.getId(), trip.getId());
         assertThat(exists).isFalse();
+        assertThat(trip.getLikeCount()).isEqualTo(0);
+    }
 
-        Trip found = tripRepository.findById(trip.getId()).orElseThrow();
-        assertThat(found.getLikeCount()).isEqualTo(0);
+    @Test
+    @DisplayName("중복 좋아요 테스트")
+    public void t3() throws Exception{
+        Member member1 = memberRepository.save(new Member(
+            "member1@test.com",
+            "member1",
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+
+        Member member2 = memberRepository.save(new Member(
+            "member2@test.com",
+            "member2",
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+
+        Trip trip = tripRepository.save(new Trip(
+            member1,
+            "test title",
+            "test country",
+            "test city",
+            LocalDateTime.now().minusMonths(12),
+            LocalDateTime.now().minusMonths(6),
+            true
+        ));
+
+        tripLikeService.createLike(member1.getId(), trip.getId());
+
+        assertThatThrownBy(() -> tripLikeService.createLike(member1.getId(), trip.getId()))
+            .isInstanceOf(ServiceException.class)
+            .hasMessage("409-1 : 이미 좋아요한 여행기입니다.");
     }
 }

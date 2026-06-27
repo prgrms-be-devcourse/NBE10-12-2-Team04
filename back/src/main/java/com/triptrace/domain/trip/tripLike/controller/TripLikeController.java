@@ -18,7 +18,6 @@ public class TripLikeController {
 
     // 좋아요 추가
     @PostMapping("/{tripId}/likes")
-    @Transactional
     public RsData<Void> createLike(
         @RequestParam Long memberId,
         @PathVariable Long tripId) {
@@ -33,7 +32,6 @@ public class TripLikeController {
 
     // 좋아요 취소
     @DeleteMapping("/{tripId}/likes")
-    @Transactional
     public RsData<Void> deleteLike(
         @RequestParam Long memberId,
         @PathVariable Long tripId) {
@@ -48,7 +46,6 @@ public class TripLikeController {
 
     // 좋아요 여부 조회
     @GetMapping("{tripId}/likes/me")
-    @Transactional(readOnly = true)
     public List<TripLikeResponse> isLiked(
         @RequestParam Long memberId,
         @PathVariable Long tripId
