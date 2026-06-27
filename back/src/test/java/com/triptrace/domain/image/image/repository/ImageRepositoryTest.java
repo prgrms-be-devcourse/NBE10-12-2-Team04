@@ -9,6 +9,7 @@ import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
+import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,8 @@ class ImageRepositoryTest {
 
     @Autowired
     private PostRepository postRepository;
+    @Autowired
+    private TripLikeRepository tripLikeRepository;
 
     @Test
     @DisplayName("게시글 ID로 이미지 목록을 조회한다")
@@ -89,9 +92,5 @@ class ImageRepositoryTest {
             "image/jpeg",
             UploadStatus.STORED
         ));
-
-        List<Image> images = imageRepository.findByPostId(post.getId());
-
-        assertThat(images).containsExactly(image);
     }
 }

@@ -50,4 +50,8 @@ public class TripLikeService {
     public List<TripLike> findAll() {
         return tripLikeRepository.findAll();
     }
+
+    public boolean isLiked(Long memberId, Long tripId) {
+        return tripLikeRepository.existsByMemberIdAndTripId(memberId, tripId);
+    }
 }
