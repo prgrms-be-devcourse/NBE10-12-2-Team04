@@ -25,8 +25,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.http.RequestEntity.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -179,6 +179,39 @@ public class TripLikeControllerTest {
             .andExpect(jsonPath("$.resultCode").value("200-1"))
             .andExpect(jsonPath("$.msg").value("좋아요 여부 조회 성공했습니다."))
             .andExpect(jsonPath("$.data.liked").value(true))
+            .andDo(print());
+    }
+
+    @Test
+    @WithMockUser(username = "member", roles = "USER")
+    @DisplayName("좋아요 하지 않는 여행기를 취소하려는 경우 예외처리 테스트")
+    public void t5() throws Exception {
+        Member member = memberRepository.save(new Member(
+            "member@test.com",
+            "member",
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+
+        Trip trip = tripRepository.save(new Trip(
+            member,
+            "test title",
+            "test country",
+            "test city",
+            LocalDateTime.now().minusMonths(12),
+            LocalDateTime.now().minusMonths(6),
+            true
+        ));
+
+        mvc.perform(
+            delete("/api/v1/trips/" + trip.getId() + "/likes")
+                .param("memberId", String.valueOf(member.getId()))
+                .with(csrf()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.resultCode").value("409-1"))
+            .andExpect(jsonPath("$.msg").value("좋아요한 적이 없는 여행기입니다."))
             .andDo(print());
     }
 }
