@@ -22,7 +22,7 @@ public class TripService {
 
     @Transactional
     public TripResponse create(Long ownerId, TripCreateRequest request) {
-        Member owner = memberRepository.findById(ownerId).orElseThrow();
+        Member owner = memberRepository.findById(ownerId).orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
 
         Trip trip = tripRepository.save(new Trip(
             owner,
@@ -55,7 +55,7 @@ public class TripService {
 
     @Transactional(readOnly = true)
     public TripResponse findAccessibleTrip(Long tripId, Long ownerId) {
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
 
         if (!trip.isVisibility()) {
             validateOwner(trip, ownerId);
@@ -66,7 +66,7 @@ public class TripService {
 
     @Transactional
     public TripResponse modifyTrip(Long tripId, Long ownerId, TripModifyRequest request) {
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
         validateOwner(trip, ownerId);
 
         trip.modify(
@@ -83,7 +83,7 @@ public class TripService {
 
     @Transactional
     public void deleteTrip(Long tripId, Long ownerId) {
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
         validateOwner(trip, ownerId);
 
         tripRepository.delete(trip);
