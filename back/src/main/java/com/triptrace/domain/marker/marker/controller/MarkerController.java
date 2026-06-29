@@ -1,7 +1,7 @@
 package com.triptrace.domain.marker.marker.controller;
 
-import com.triptrace.domain.marker.marker.dto.MarkerCreateReqBody;
-import com.triptrace.domain.marker.marker.dto.MarkerModifyReqBody;
+import com.triptrace.domain.marker.marker.dto.MarkerCreateRequest;
+import com.triptrace.domain.marker.marker.dto.MarkerModifyRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerResponse;
 import com.triptrace.domain.marker.marker.service.MarkerService;
 import com.triptrace.global.rsData.RsData;
@@ -21,10 +21,10 @@ public class MarkerController {
     @PostMapping("/posts/{postId}/markers")
     public RsData<MarkerResponse> create(
         @PathVariable Long postId,
-        @RequestBody MarkerCreateReqBody reqBody
+        @RequestBody MarkerCreateRequest request
     ) {
-        MarkerResponse response =
-            markerService.createMarker(postId, reqBody);
+
+        MarkerResponse response = markerService.createMarker(postId, request);
 
         return new RsData<>(
             "201-1",
@@ -38,9 +38,10 @@ public class MarkerController {
     public RsData<List<MarkerResponse>> list(
         @PathVariable Long postId
     ) {
-        return  new RsData<>(
+
+        return new RsData<>(
             "200-1",
-            "마커 목록 조회에 성공했습니다",
+            "마커 목록 조회에 성공했습니다.",
             markerService.getMarkers(postId)
         );
     }
@@ -50,9 +51,10 @@ public class MarkerController {
     public RsData<MarkerResponse> detail(
         @PathVariable Long markerId
     ) {
-        return  new RsData<>(
+
+        return new RsData<>(
             "200-1",
-            "마커 조회에 성공했습니다",
+            "마커 조회에 성공했습니다.",
             markerService.getMarker(markerId)
         );
     }
@@ -61,12 +63,13 @@ public class MarkerController {
     @PatchMapping("/posts/markers/{markerId}")
     public RsData<MarkerResponse> modify(
         @PathVariable Long markerId,
-        @RequestBody MarkerModifyReqBody reqBody
+        @RequestBody MarkerModifyRequest request
     ) {
+
         return new RsData<>(
             "200-1",
             "마커가 수정되었습니다.",
-            markerService.modifyMarker(markerId, reqBody)
+            markerService.modifyMarker(markerId, request)
         );
     }
 
@@ -76,6 +79,7 @@ public class MarkerController {
         @PathVariable Long markerId,
         @RequestBody Long memberId
     ) {
+
         markerService.deleteMarker(markerId, memberId);
 
         return new RsData<>(

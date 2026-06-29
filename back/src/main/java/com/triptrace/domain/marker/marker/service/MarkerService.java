@@ -1,11 +1,12 @@
 package com.triptrace.domain.marker.marker.service;
 
-import com.triptrace.domain.marker.marker.dto.*;
+import com.triptrace.domain.marker.marker.dto.MarkerCreateRequest;
+import com.triptrace.domain.marker.marker.dto.MarkerModifyRequest;
+import com.triptrace.domain.marker.marker.dto.MarkerResponse;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
-
 import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,20 +30,20 @@ public class MarkerService {
     }
 
     // 생성
-    public MarkerResponse createMarker(Long postId, MarkerCreateReqBody reqBody) {
+    public MarkerResponse createMarker(Long postId, MarkerCreateRequest request) {
 
         Post post = postRepository.findById(postId)
             .orElseThrow(() -> new ServiceException("404-1", "게시물을 찾을 수 없습니다."));
 
-        validateOwner(post, reqBody.memberId());
+        validateOwner(post, request.memberId());
 
         Marker marker = new Marker(
             post,
-            reqBody.centerLat(),
-            reqBody.centerLng(),
-            reqBody.placeName(),
-            reqBody.visitedAt(),
-            reqBody.source()
+            request.centerLat(),
+            request.centerLng(),
+            request.placeName(),
+            request.visitedAt(),
+            request.source()
         );
 
         Marker saved = markerRepository.save(marker);
@@ -56,15 +57,10 @@ public class MarkerService {
         postRepository.findById(postId)
             .orElseThrow(() -> new ServiceException("404-1", "게시물을 찾을 수 없습니다."));
 
-        List<Marker> markers = markerRepository.findByPostId(postId)
+        return markerRepository.findByPostId(postId)
             .stream()
-            .toList();
-
-        List<MarkerResponse> result = markers.stream()
             .map(MarkerResponse::new)
             .toList();
-
-        return result;
     }
 
     // 상세
@@ -77,19 +73,19 @@ public class MarkerService {
     }
 
     // 수정
-    public MarkerResponse modifyMarker(Long markerId, MarkerModifyReqBody reqBody) {
+    public MarkerResponse modifyMarker(Long markerId, MarkerModifyRequest request) {
 
         Marker marker = markerRepository.findById(markerId)
             .orElseThrow(() -> new ServiceException("404-1", "마커를 찾을 수 없습니다."));
 
-        validateOwner(marker.getPost(), reqBody.memberId());
+        validateOwner(marker.getPost(), request.memberId());
 
         marker.modify(
-            reqBody.centerLat(),
-            reqBody.centerLng(),
-            reqBody.placeName(),
-            reqBody.visitedAt(),
-            reqBody.source()
+            request.centerLat(),
+            request.centerLng(),
+            request.placeName(),
+            request.visitedAt(),
+            request.source()
         );
 
         return new MarkerResponse(marker);
@@ -104,6 +100,5 @@ public class MarkerService {
         validateOwner(marker.getPost(), memberId);
 
         markerRepository.delete(marker);
-
     }
 }
