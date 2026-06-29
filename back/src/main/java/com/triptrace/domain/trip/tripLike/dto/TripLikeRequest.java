@@ -2,7 +2,7 @@ package com.triptrace.domain.trip.tripLike.dto;
 
 import java.time.LocalDateTime;
 
-public record TripLikeReqBody(
+public record TripLikeRequest(
     Long id,
     Long memberId,
     Long tripId,
