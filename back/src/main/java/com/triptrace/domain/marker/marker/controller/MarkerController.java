@@ -40,7 +40,7 @@ public class MarkerController {
     ) {
         return  new RsData<>(
             "200-1",
-            "마커 목록 조회 성공",
+            "마커 목록 조회에 성공했습니다",
             markerService.getMarkers(postId)
         );
     }
@@ -52,7 +52,7 @@ public class MarkerController {
     ) {
         return  new RsData<>(
             "200-1",
-            "마커 조회 성공",
+            "마커 조회에 성공했습니다",
             markerService.getMarker(markerId)
         );
     }
