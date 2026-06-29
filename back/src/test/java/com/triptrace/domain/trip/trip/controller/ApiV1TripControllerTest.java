@@ -48,10 +48,10 @@ class ApiV1TripControllerTest {
 
         mvc.perform(post("/api/v1/trips")
                 .with(csrf())
+                .param("ownerId", String.valueOf(member.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                      "memberId": %d,
                       "title": "교토 여행",
                       "country": "일본",
                       "city": "교토",
@@ -59,7 +59,7 @@ class ApiV1TripControllerTest {
                       "endDate": "2026-01-05T00:00:00",
                       "visibility": true
                     }
-                    """.formatted(member.getId())))
+                    """))
             .andDo(print())
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.resultCode").value("201-1"))
@@ -70,14 +70,14 @@ class ApiV1TripControllerTest {
     @Test
     @WithMockUser
     @DisplayName("내 여행기 목록 조회 API")
-    void mine() throws Exception {
+    void getMyTrips() throws Exception {
         Member owner = createMember("owner");
         Member other = createMember("other");
         createTrip(owner, "내 여행기");
         createTrip(other, "다른 사람 여행기");
 
         mvc.perform(get("/api/v1/users/me/trips")
-                .param("memberId", String.valueOf(owner.getId())))
+                .param("ownerId", String.valueOf(owner.getId())))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.length()").value(1))
@@ -86,8 +86,24 @@ class ApiV1TripControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("여행기 상세 조회 API")
-    void detail() throws Exception {
+    @DisplayName("전체 여행기 목록 조회 API")
+    void getTrips() throws Exception {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        createTrip(owner, "공개 여행기");
+        createTrip(other, "비공개 여행기", false);
+
+        mvc.perform(get("/api/v1/trips"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].title").value("공개 여행기"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("공개 여행기는 ownerId 없이 상세 조회할 수 있다.")
+    void getTrip() throws Exception {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "상세 여행기");
 
@@ -100,17 +116,47 @@ class ApiV1TripControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("비공개 여행기는 소유자만 상세 조회할 수 있다.")
+    void getPrivateTripByOwner() throws Exception {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "비공개 여행기", false);
+
+        mvc.perform(get("/api/v1/trips/{tripId}", trip.getId())
+                .param("ownerId", String.valueOf(owner.getId())))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.id").value(trip.getId()))
+            .andExpect(jsonPath("$.data.title").value("비공개 여행기"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("소유자가 아닌 사용자는 비공개 여행기를 상세 조회할 수 없다.")
+    void getPrivateTripForbidden() throws Exception {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        Trip trip = createTrip(owner, "비공개 여행기", false);
+
+        mvc.perform(get("/api/v1/trips/{tripId}", trip.getId())
+                .param("ownerId", String.valueOf(other.getId())))
+            .andDo(print())
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @WithMockUser
     @DisplayName("여행기 수정 API")
-    void modify() throws Exception {
+    void modifyTrip() throws Exception {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "수정 전");
 
         mvc.perform(patch("/api/v1/trips/{tripId}", trip.getId())
                 .with(csrf())
+                .param("ownerId", String.valueOf(owner.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                      "memberId": %d,
                       "title": "수정 후",
                       "country": "한국",
                       "city": "서울",
@@ -118,7 +164,7 @@ class ApiV1TripControllerTest {
                       "endDate": "2026-02-03T00:00:00",
                       "visibility": false
                     }
-                    """.formatted(owner.getId())))
+                    """))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.title").value("수정 후"))
@@ -135,7 +181,7 @@ class ApiV1TripControllerTest {
 
         mvc.perform(delete("/api/v1/trips/{tripId}", trip.getId())
                 .with(csrf())
-                .param("memberId", String.valueOf(other.getId())))
+                .param("ownerId", String.valueOf(other.getId())))
             .andDo(print())
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -155,6 +201,10 @@ class ApiV1TripControllerTest {
     }
 
     private Trip createTrip(Member owner, String title) {
+        return createTrip(owner, title, true);
+    }
+
+    private Trip createTrip(Member owner, String title, boolean visibility) {
         return tripRepository.save(new Trip(
             owner,
             title,
@@ -162,7 +212,7 @@ class ApiV1TripControllerTest {
             "교토",
             LocalDateTime.of(2026, 1, 1, 0, 0),
             LocalDateTime.of(2026, 1, 5, 0, 0),
-            true
+            visibility
         ));
     }
 }

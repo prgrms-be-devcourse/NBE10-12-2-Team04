@@ -1,7 +1,7 @@
 package com.triptrace.domain.trip.trip.controller;
 
-import com.triptrace.domain.trip.trip.dto.TripCreateReqBody;
-import com.triptrace.domain.trip.trip.dto.TripModifyReqBody;
+import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
+import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
@@ -18,9 +18,10 @@ public class ApiV1TripController {
 
     @PostMapping("/trips")
     public RsData<TripResponse> create(
-        @RequestBody TripCreateReqBody reqBody
+        @RequestParam Long ownerId,
+        @RequestBody TripCreateRequest request
     ) {
-        TripResponse response = tripService.create(reqBody);
+        TripResponse response = tripService.create(ownerId, request);
 
         return new RsData<>(
             "201-1",
@@ -30,45 +31,56 @@ public class ApiV1TripController {
     }
 
     @GetMapping("/users/me/trips")
-    public RsData<List<TripResponse>> mine(
-        @RequestParam Long memberId
+    public RsData<List<TripResponse>> getMyTrips(
+        @RequestParam Long ownerId
     ) {
         return new RsData<>(
             "200-1",
             "내 여행기 목록 조회에 성공했습니다.",
-            tripService.findMine(memberId)
+            tripService.findTripsByOwnerId(ownerId)
+        );
+    }
+
+    @GetMapping("/trips")
+    public RsData<List<TripResponse>> getTrips() {
+        return new RsData<>(
+            "200-1",
+            "공개 여행기 목록 조회에 성공했습니다.",
+            tripService.findPublicTrips()
         );
     }
 
     @GetMapping("/trips/{tripId}")
-    public RsData<TripResponse> detail(
-        @PathVariable Long tripId
+    public RsData<TripResponse> getTrip(
+        @PathVariable Long tripId,
+        @RequestParam(required = false) Long ownerId
     ) {
         return new RsData<>(
             "200-1",
             "%d번 여행기 조회에 성공했습니다.".formatted(tripId),
-            tripService.findById(tripId)
+            tripService.findAccessibleTrip(tripId, ownerId)
         );
     }
 
     @PatchMapping("/trips/{tripId}")
-    public RsData<TripResponse> modify(
+    public RsData<TripResponse> modifyTrip(
         @PathVariable Long tripId,
-        @RequestBody TripModifyReqBody reqBody
+        @RequestParam Long ownerId,
+        @RequestBody TripModifyRequest request
     ) {
         return new RsData<>(
             "200-1",
             "%d번 여행기가 수정되었습니다.".formatted(tripId),
-            tripService.modify(tripId, reqBody)
+            tripService.modifyTrip(tripId, ownerId, request)
         );
     }
 
     @DeleteMapping("/trips/{tripId}")
-    public RsData<Void> delete(
+    public RsData<Void> deleteTrip(
         @PathVariable Long tripId,
-        @RequestParam Long memberId
+        @RequestParam Long ownerId
     ) {
-        tripService.delete(tripId, memberId);
+        tripService.deleteTrip(tripId, ownerId);
 
         return new RsData<>(
             "200-1",

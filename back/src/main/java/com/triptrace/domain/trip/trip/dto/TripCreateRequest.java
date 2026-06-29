@@ -2,8 +2,7 @@ package com.triptrace.domain.trip.trip.dto;
 
 import java.time.LocalDateTime;
 
-public record TripModifyReqBody(
-    Long memberId,
+public record TripCreateRequest(
     String title,
     String country,
     String city,

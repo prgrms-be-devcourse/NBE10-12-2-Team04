@@ -45,6 +45,22 @@ public class Trip extends BaseEntity {
         this.likeCount--;
     }
 
+    public void modify(
+        String title,
+        String country,
+        String city,
+        LocalDateTime startDate,
+        LocalDateTime endDate,
+        boolean visibility
+    ) {
+        this.title = title;
+        this.country = country;
+        this.city = city;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.visibility = visibility;
+    }
+
     public Trip(
         Member owner,
         String title,
