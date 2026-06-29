@@ -1,0 +1,168 @@
+package com.triptrace.domain.trip.trip.controller;
+
+import com.triptrace.domain.member.member.entity.Member;
+import com.triptrace.domain.member.member.entity.MemberStatus;
+import com.triptrace.domain.member.member.repository.MemberRepository;
+import com.triptrace.domain.trip.trip.entity.Trip;
+import com.triptrace.domain.trip.trip.repository.TripRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@ActiveProfiles("test")
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class ApiV1TripControllerTest {
+    @Autowired
+    private MockMvc mvc;
+
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
+    private TripRepository tripRepository;
+
+    @Test
+    @WithMockUser
+    @DisplayName("여행기 생성 API")
+    void create() throws Exception {
+        Member member = createMember("user1");
+
+        mvc.perform(post("/api/v1/trips")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "memberId": %d,
+                      "title": "교토 여행",
+                      "country": "일본",
+                      "city": "교토",
+                      "startDate": "2026-01-01T00:00:00",
+                      "endDate": "2026-01-05T00:00:00",
+                      "visibility": true
+                    }
+                    """.formatted(member.getId())))
+            .andDo(print())
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.resultCode").value("201-1"))
+            .andExpect(jsonPath("$.data.ownerId").value(member.getId()))
+            .andExpect(jsonPath("$.data.title").value("교토 여행"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("내 여행기 목록 조회 API")
+    void mine() throws Exception {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        createTrip(owner, "내 여행기");
+        createTrip(other, "다른 사람 여행기");
+
+        mvc.perform(get("/api/v1/users/me/trips")
+                .param("memberId", String.valueOf(owner.getId())))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].title").value("내 여행기"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("여행기 상세 조회 API")
+    void detail() throws Exception {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "상세 여행기");
+
+        mvc.perform(get("/api/v1/trips/{tripId}", trip.getId()))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.id").value(trip.getId()))
+            .andExpect(jsonPath("$.data.title").value("상세 여행기"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("여행기 수정 API")
+    void modify() throws Exception {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "수정 전");
+
+        mvc.perform(patch("/api/v1/trips/{tripId}", trip.getId())
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "memberId": %d,
+                      "title": "수정 후",
+                      "country": "한국",
+                      "city": "서울",
+                      "startDate": "2026-02-01T00:00:00",
+                      "endDate": "2026-02-03T00:00:00",
+                      "visibility": false
+                    }
+                    """.formatted(owner.getId())))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.title").value("수정 후"))
+            .andExpect(jsonPath("$.data.visibility").value(false));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("소유자가 아닌 사용자는 여행기를 삭제할 수 없다.")
+    void deleteForbidden() throws Exception {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        Trip trip = createTrip(owner, "삭제 방어");
+
+        mvc.perform(delete("/api/v1/trips/{tripId}", trip.getId())
+                .with(csrf())
+                .param("memberId", String.valueOf(other.getId())))
+            .andDo(print())
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.resultCode").value("403-1"));
+
+        assertThat(tripRepository.existsById(trip.getId())).isTrue();
+    }
+
+    private Member createMember(String username) {
+        return memberRepository.save(new Member(
+            "%s@test.com".formatted(username),
+            username,
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+    }
+
+    private Trip createTrip(Member owner, String title) {
+        return tripRepository.save(new Trip(
+            owner,
+            title,
+            "일본",
+            "교토",
+            LocalDateTime.of(2026, 1, 1, 0, 0),
+            LocalDateTime.of(2026, 1, 5, 0, 0),
+            true
+        ));
+    }
+}
