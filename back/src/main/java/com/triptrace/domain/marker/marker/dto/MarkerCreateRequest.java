@@ -5,7 +5,7 @@ import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public record MarkerCreateReqBody(
+public record MarkerCreateRequest(
     Long memberId,
     BigDecimal centerLat,
     BigDecimal centerLng,
