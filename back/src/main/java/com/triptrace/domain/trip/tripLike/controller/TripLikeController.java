@@ -1,24 +1,16 @@
 package com.triptrace.domain.trip.tripLike.controller;
 
 import com.triptrace.domain.trip.tripLike.dto.TripLikeStatusResponse;
-import com.triptrace.domain.trip.tripLike.entity.TripLike;
-import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
-import com.triptrace.global.exception.ServiceException;
-import com.triptrace.global.globalExceptionHandler.GlobalExceptionHandler;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.NoSuchElementException;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/trips")
 @RequiredArgsConstructor
 public class TripLikeController {
     private final TripLikeService tripLikeService;
-    private final TripLikeRepository tripLikeRepository;
 
     // 좋아요 추가
     @PostMapping("/{tripId}/likes")

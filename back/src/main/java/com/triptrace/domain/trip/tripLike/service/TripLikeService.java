@@ -38,7 +38,7 @@ public class TripLikeService {
         Trip trip = tripRepository.findById(tripId).orElseThrow();
 
         TripLike tripLike = tripLikeRepository.findByMemberIdAndTripId(memberId, tripId)
-            .orElseThrow(() -> new ServiceException("404-1", "좋아요한 적이 없는 여행기입니다."));
+            .orElseThrow(() -> new ServiceException("409-1", "좋아요한 적이 없는 여행기입니다."));
 
         tripLikeRepository.delete(tripLike);
         trip.decreaseLikeCount();

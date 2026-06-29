@@ -8,7 +8,6 @@ import com.triptrace.domain.trip.trip.repository.TripRepository;
 import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.exception.ServiceException;
-import com.triptrace.global.globalExceptionHandler.GlobalExceptionHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.LocalDateTime;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.http.RequestEntity.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -212,8 +209,8 @@ public class TripLikeControllerTest {
             delete("/api/v1/trips/" + trip.getId() + "/likes")
                 .param("memberId", String.valueOf(member.getId()))
                 .with(csrf()))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.resultCode").value("404-1"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.resultCode").value("409-1"))
             .andExpect(jsonPath("$.msg").value("좋아요한 적이 없는 여행기입니다."))
             .andDo(print());
     }
