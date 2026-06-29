@@ -1,7 +1,6 @@
 package com.triptrace.domain.trip.tripLike.controller;
 
 import com.triptrace.domain.trip.tripLike.dto.TripLikeStatusResponse;
-import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
