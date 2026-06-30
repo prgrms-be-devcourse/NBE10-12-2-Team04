@@ -1,0 +1,48 @@
+name: Backend CI
+
+# CI를 실행할 이벤트를 정의
+on:
+  # develop 브랜치로 향하는 PR이 생성되거나 업데이트될 때 실행
+  pull_request:
+    branches:
+      - develop
+
+  # develop 브랜치에 변경사항이 반영될 때도 실행
+  push:
+    branches:
+      - develop
+
+jobs:
+  test:
+    # GitHub가 제공하는 Ubuntu 최신 실행 환경을 사용
+    runs-on: ubuntu-latest
+
+    # 백엔드 Gradle 프로젝트가 back 디렉토리에 있으므로 기본 실행 위치를 back으로 지정
+    defaults:
+      run:
+        working-directory: back
+
+    steps:
+      # CI 서버에 현재 저장소 코드를 내려받기
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 프로젝트 Gradle toolchain 설정에 맞춰 Java 25를 사용
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # Gradle 의존성 캐시와 실행 환경 준비
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Linux CI 환경에서 Gradle Wrapper를 실행할 수 있도록 권한 부여
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # PR 화면에 Gradle test 성공/실패 결과가 표시되도록 테스트를 실행
+      # 이 워크플로우를 브랜치 보호의 필수 체크로 등록하지 않으면 테스트가 실패해도 merge 자체는 가능
+      - name: Run Gradle tests
+        run: ./gradlew test
