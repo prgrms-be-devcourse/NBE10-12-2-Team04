@@ -16,7 +16,6 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
@@ -30,7 +29,7 @@ public class ImageProcessorTest {
     @Autowired
     ImageProcessor imageProcessor;
 
-    String imageFileName = "/kakaotalk-am.jpeg";
+    String imageFileName = "/test-a-mail.jpg";
 
     @BeforeEach
     void setUp() {
