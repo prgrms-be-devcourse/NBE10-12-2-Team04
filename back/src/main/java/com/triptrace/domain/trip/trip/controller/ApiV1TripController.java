@@ -5,6 +5,7 @@ import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +20,7 @@ public class ApiV1TripController {
     @PostMapping("/trips")
     public RsData<TripResponse> create(
         @RequestParam Long ownerId,
-        @RequestBody TripCreateRequest request
+        @RequestBody @Valid TripCreateRequest request
     ) {
         TripResponse response = tripService.create(ownerId, request);
 
@@ -66,7 +67,7 @@ public class ApiV1TripController {
     public RsData<TripResponse> modifyTrip(
         @PathVariable Long tripId,
         @RequestParam Long ownerId,
-        @RequestBody TripModifyRequest request
+        @RequestBody @Valid TripModifyRequest request
     ) {
         return new RsData<>(
             "200-1",

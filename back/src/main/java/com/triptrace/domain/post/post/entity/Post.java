@@ -36,4 +36,10 @@ public class Post extends BaseEntity {
         this.title = title;
         this.memo = memo;
     }
+
+    public void modify(LocalDate date, String title, String memo) {
+        this.date = date;
+        this.title = title;
+        this.memo = memo;
+    }
 }
