@@ -2,7 +2,7 @@ spring:
   application:
     name: triptrace
   profiles:
-    active: dev
+    active: dev, image-processor
   output:
     ansi:
       enabled: always
