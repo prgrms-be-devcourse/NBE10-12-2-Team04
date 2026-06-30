@@ -30,6 +30,8 @@ public class ImageProcessorTest {
     @Autowired
     ImageProcessor imageProcessor;
 
+    String imageFileName = "/kakaotalk-am.jpeg";
+
     @BeforeEach
     void setUp() {
         imageProcessor = new ImageProcessor(
@@ -42,7 +44,7 @@ public class ImageProcessorTest {
     @Test
     @DisplayName("메타데이터 필요한 것만 추출")
     void test01() throws Exception {
-        InputStream fis = getClass().getResourceAsStream("/kakaotalk-am.jpeg");
+        InputStream fis = getClass().getResourceAsStream(imageFileName);
         ImageInfo info = imageProcessor.extract(fis);
         System.out.println(info);
         //초기값 덮어씌워졌는지 검증
@@ -52,14 +54,14 @@ public class ImageProcessorTest {
     @Test
     @DisplayName("반드시 성공됨 메타데이터 모두 출력")
     void test02() throws Exception {
-        InputStream fis = getClass().getResourceAsStream("/kakaotalk-am.jpeg");
+        InputStream fis = getClass().getResourceAsStream(imageFileName);
         imageProcessor.showAllInfoByMetaData(ImageMetadataReader.readMetadata(fis));
     }
 
     @Test
     @DisplayName("데이터추출 후 이미지 2개로 저장")
     void test03() throws Exception {
-        byte[] bytes = getClass().getResourceAsStream("/kakaotalk-am.jpeg").readAllBytes();
+        byte[] bytes = getClass().getResourceAsStream(imageFileName).readAllBytes();
         ByteArrayInputStream fis = new ByteArrayInputStream(bytes);
         ImageInfo imgInfo = imageProcessor.extract(fis);
         validateInitImageInfo(imgInfo);
@@ -77,7 +79,7 @@ public class ImageProcessorTest {
     @Test
     @DisplayName("이미지 저장 시 파일 크기를 반환한다")
     void test05() throws Exception {
-        byte[] bytes = getClass().getResourceAsStream("/kakaotalk-am.jpeg").readAllBytes();
+        byte[] bytes = getClass().getResourceAsStream(imageFileName).readAllBytes();
         ImageInfo info = imageProcessor.extract(new ByteArrayInputStream(bytes));
         List<SavedFileInfo> list = imageProcessor.saveImageAll(new ByteArrayInputStream(bytes), info.getOrientation());
         for(SavedFileInfo savedFileInfo : list) {
