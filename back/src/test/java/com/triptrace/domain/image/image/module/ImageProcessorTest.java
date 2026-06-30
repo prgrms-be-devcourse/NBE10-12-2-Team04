@@ -46,7 +46,7 @@ public class ImageProcessorTest {
         ImageInfo info = imageProcessor.extract(fis);
         System.out.println(info);
         //초기값 덮어씌워졌는지 검증
-        initImageInfoData(info);
+        validateInitImageInfo(info);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class ImageProcessorTest {
         byte[] bytes = getClass().getResourceAsStream("/kakaotalk-am.jpeg").readAllBytes();
         ByteArrayInputStream fis = new ByteArrayInputStream(bytes);
         ImageInfo imgInfo = imageProcessor.extract(fis);
-        initImageInfoData(imgInfo);
+        validateInitImageInfo(imgInfo);
         fis.reset();
         List<SavedFileInfo> list = imageProcessor.saveImageAll(fis, imgInfo.getOrientation());
         for(SavedFileInfo savedFileInfo : list) {
@@ -97,7 +97,7 @@ public class ImageProcessorTest {
             .isInstanceOf(ImageProcessException.class);
     }
 
-    private void initImageInfoData(ImageInfo info){
+    private void validateInitImageInfo(ImageInfo info){
         assertThat(info).isNotNull();
         assertThat(info.getOrientation()).isGreaterThan(0);
         assertThat(info.getHeight()).isGreaterThan(0);
