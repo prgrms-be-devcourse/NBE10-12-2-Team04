@@ -41,3 +41,4 @@ Thumbs.db
 *.jpg
 *.jpeg
 *.JPG
+!test-a-mail.jpg

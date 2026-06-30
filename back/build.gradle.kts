@@ -19,13 +19,14 @@ repositories {
 }
 
 val jjwtVersion = "0.13.0"
+val extractorVersion = "2.19.0"
 
 dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-//    implementation("org.springframework.boot:spring-boot-starter-security")
+    // implementation("org.springframework.boot:spring-boot-starter-security")
 
     // H2 Console
     implementation("org.springframework.boot:spring-boot-h2console")
@@ -39,6 +40,11 @@ dependencies {
     // Lombok
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
+    //Image MetaData
+    implementation("com.drewnoakes:metadata-extractor:$extractorVersion")
+
+
 
     // Dev
     developmentOnly("org.springframework.boot:spring-boot-devtools")
