@@ -18,7 +18,7 @@ public class ApiV1PostController {
     private final PostService postService;
 
     @PostMapping("/trips/{tripId}/posts")
-    public RsData<PostResponse> create(
+    public RsData<PostResponse> createPost(
         @PathVariable Long tripId,
         @RequestParam Long ownerId, //임시 인증
         @RequestBody @Valid PostCreateRequest request
