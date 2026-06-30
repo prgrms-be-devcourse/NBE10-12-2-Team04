@@ -5,4 +5,4 @@ spring:
       max-request-size: 100MB
 custom:
   servingImage: src/test/resources/images/serving
-  thumbnailImage: src/test/resources/images/thumnail
+  thumbnailImage: src/test/resources/images/thumbnail
