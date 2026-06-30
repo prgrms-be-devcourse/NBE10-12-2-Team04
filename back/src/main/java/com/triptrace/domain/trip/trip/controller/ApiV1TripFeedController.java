@@ -23,16 +23,10 @@ public class ApiV1TripFeedController {
         @RequestParam Long ownerId,
         @RequestParam(value = "limit", defaultValue = "10") Long likeCount
     ) {
-
-
-
-
         return new RsData<> (
             "200-1",
             "좋아요 상위 10개 여행기 조회에 성공했습니다.",
             tripService.findPublicTrips()
         );
     }
-
-
 }
