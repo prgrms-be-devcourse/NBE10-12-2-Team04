@@ -5,6 +5,7 @@ import com.triptrace.domain.marker.marker.dto.MarkerModifyRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerResponse;
 import com.triptrace.domain.marker.marker.service.MarkerService;
 import com.triptrace.global.rsData.RsData;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,9 +20,9 @@ public class MarkerController {
 
     // 마커 생성
     @PostMapping("/posts/{postId}/markers")
-    public RsData<MarkerResponse> create(
+    public RsData<MarkerResponse> createMarker(
         @PathVariable Long postId,
-        @RequestBody MarkerCreateRequest request
+        @Valid @RequestBody MarkerCreateRequest request
     ) {
 
         MarkerResponse response = markerService.createMarker(postId, request);
@@ -35,7 +36,7 @@ public class MarkerController {
 
     // 마커 목록 조회
     @GetMapping("/posts/{postId}/markers")
-    public RsData<List<MarkerResponse>> list(
+    public RsData<List<MarkerResponse>> getMarkers (
         @PathVariable Long postId
     ) {
 
@@ -48,7 +49,7 @@ public class MarkerController {
 
     // 마커 상세 조회
     @GetMapping("/posts/markers/{markerId}")
-    public RsData<MarkerResponse> detail(
+    public RsData<MarkerResponse> getMarker (
         @PathVariable Long markerId
     ) {
 
@@ -61,9 +62,9 @@ public class MarkerController {
 
     // 마커 수정
     @PatchMapping("/posts/markers/{markerId}")
-    public RsData<MarkerResponse> modify(
+    public RsData<MarkerResponse> modifyMarker (
         @PathVariable Long markerId,
-        @RequestBody MarkerModifyRequest request
+        @Valid @RequestBody MarkerModifyRequest request
     ) {
 
         return new RsData<>(
@@ -75,7 +76,7 @@ public class MarkerController {
 
     // 마커 삭제
     @DeleteMapping("/posts/markers/{markerId}")
-    public RsData<Void> delete(
+    public RsData<Void> deleteMarker (
         @PathVariable Long markerId,
         @RequestBody Long memberId
     ) {
