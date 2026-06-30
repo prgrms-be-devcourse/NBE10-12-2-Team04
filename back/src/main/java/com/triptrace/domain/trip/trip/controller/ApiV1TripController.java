@@ -18,7 +18,7 @@ public class ApiV1TripController {
     private final TripService tripService;
 
     @PostMapping("/trips")
-    public RsData<TripResponse> create(
+    public RsData<TripResponse> createTrip(
         @RequestParam Long ownerId,
         @RequestBody @Valid TripCreateRequest request
     ) {
