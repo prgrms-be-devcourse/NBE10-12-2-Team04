@@ -65,7 +65,7 @@ public class TripLikeServiceTest {
     }
 
     @Test
-    @DisplayName("중복 좋아요 테스트중")
+    @DisplayName("중복 좋아요 테스트중 Mokito를 사용해서 가짜객체 생성이 가능하고 ")
     public void duplicateLikeTest2() throws Exception {
         tripLikeService.createLike(member.getId(), trip.getId());
         tripLikeService.createLike(member.getId(), trip.getId());
