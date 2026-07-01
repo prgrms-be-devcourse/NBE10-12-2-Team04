@@ -429,6 +429,3 @@ public class TripRepositoryTest {
         System.out.println(tripList.getLast().getId());
     }
 }
-
-
-
