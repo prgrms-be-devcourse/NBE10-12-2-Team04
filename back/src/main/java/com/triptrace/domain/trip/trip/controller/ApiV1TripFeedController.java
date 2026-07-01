@@ -15,9 +15,7 @@ public class ApiV1TripFeedController {
     private final TripService tripService;
 
     @GetMapping("/top-liked")
-    public RsData<List<TripResponse>> getLikedTop10(
-        @RequestParam(value = "limit", defaultValue = "10") Long likeCount
-    ) {
+    public RsData<List<TripResponse>> getLikedTop10() {
         return new RsData<> (
             "200-1",
             "좋아요 상위 10개 여행기 조회에 성공했습니다.",
