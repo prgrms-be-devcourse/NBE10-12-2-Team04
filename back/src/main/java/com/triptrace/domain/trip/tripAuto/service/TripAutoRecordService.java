@@ -4,6 +4,7 @@ import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.entity.MarkerSource;
+import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingClient;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
@@ -38,6 +39,7 @@ public class TripAutoRecordService {
     private final ImageRepository imageRepository;
     private final PostRepository postRepository;
     private final MarkerRepository markerRepository;
+    private final ReverseGeocodingClient reverseGeocodingClient;
 
     // 자동 생성은 Post 생성, Marker 생성, Image 연결이 하나의 작업이므로 중간 실패 시 전체 롤백
     @Transactional
@@ -79,11 +81,17 @@ public class TripAutoRecordService {
 
             // 클러스터 하나를 지도 마커 하나로 변환
             // Marker는 대표 Image만 참조
+            // 장소명은 대표 이미지 GPS를 역지오코딩해서 채운다. 실패하면 null로 두고 생성은 계속 진행한다.
+            String placeName = reverseGeocodingClient.findPlaceName(
+                representativeImage.getGpsLat(),
+                representativeImage.getGpsLng()
+            );
+
             Marker marker = markerRepository.save(new Marker(
                 post,
                 truncateCoordinate(representativeImage.getGpsLat()),
                 truncateCoordinate(representativeImage.getGpsLng()),
-                null,
+                placeName,
                 representativeImage.getCapturedAt(),
                 MarkerSource.AUTO,
                 representativeImage
