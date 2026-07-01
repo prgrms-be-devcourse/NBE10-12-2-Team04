@@ -87,7 +87,6 @@ class MarkerRepositoryTest {
             title + "@example.com",
             title,
             "passwordHash",
-            title + "-api-key",
             null,
             MemberStatus.ACTIVE
         ));

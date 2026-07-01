@@ -45,7 +45,6 @@ class ImageRepositoryTest {
             "user@example.com",
             "traveler",
             "passwordHash",
-            "api-key",
             null,
             MemberStatus.ACTIVE
         ));

@@ -63,6 +63,17 @@ public class ApiV1AuthController {
         return new RsData<>("200-1", "토큰 재발급 성공", new ReissueResponse(tokens.accessToken()));
     }
 
+    @PostMapping("/auth/logout")
+    public RsData<Void> logout(
+        @CookieValue(value = "refreshToken", required = false) String refreshToken,
+        HttpServletResponse response
+    ) {
+        authService.logout(refreshToken);
+        expireRefreshTokenCookie(response);
+
+        return new RsData<>("200-1", "로그아웃 성공");
+    }
+
     // RT를 HttpOnly 쿠키로 내려준다. (로그인/재발급 공통)
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
@@ -70,6 +81,18 @@ public class ApiV1AuthController {
             .sameSite("Strict")
             .path("/api/v1/auth")
             .maxAge(Duration.ofSeconds(refreshTokenExpirationSeconds))
+            .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    // 로그아웃 시 브라우저의 RT 쿠키를 즉시 만료시킨다. (maxAge=0, 동일 path여야 삭제됨)
+    private void expireRefreshTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+            .httpOnly(true)
+            .sameSite("Strict")
+            .path("/api/v1/auth")
+            .maxAge(0)
             .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

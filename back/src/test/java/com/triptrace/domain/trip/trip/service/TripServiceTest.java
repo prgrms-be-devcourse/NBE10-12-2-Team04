@@ -176,7 +176,6 @@ class TripServiceTest {
             "%s@test.com".formatted(username),
             username,
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));

@@ -84,6 +84,15 @@ public class AuthService {
         return issueTokens(storedToken.getMember());
     }
 
+    // 로그아웃: 전달받은 RT를 폐기 표시한다. (같은 트랜잭션의 dirty checking으로 UPDATE 반영)
+    @Transactional
+    public void logout(String refreshToken) {
+        RefreshToken storedToken = refreshTokenRepository.findByToken(refreshToken)
+            .orElseThrow(() -> new ServiceException("401-1", "유효하지 않은 리프레시 토큰입니다."));
+
+        storedToken.revoke();
+    }
+
     // AT 발급 + 새 RT 발급·저장 후 한 쌍으로 반환. (로그인/재발급 공통)
     private TokenPair issueTokens(Member member) {
         String accessToken = jwtProvider.generateAccessToken(member.getId(), member.getEmail());

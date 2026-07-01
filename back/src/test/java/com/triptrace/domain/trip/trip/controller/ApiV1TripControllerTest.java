@@ -194,7 +194,6 @@ class ApiV1TripControllerTest {
             "%s@test.com".formatted(username),
             username,
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
