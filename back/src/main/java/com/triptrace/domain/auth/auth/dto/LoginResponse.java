@@ -1,4 +1,10 @@
 package com.triptrace.domain.auth.auth.dto;
 
-public class LoginResponse {
+public record LoginResponse(
+    String accessToken,
+    String tokenType
+) {
+    public LoginResponse(String accessToken) {
+        this(accessToken, "Bearer");
+    }
 }
