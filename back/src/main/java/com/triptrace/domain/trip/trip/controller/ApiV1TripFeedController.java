@@ -3,10 +3,7 @@ package com.triptrace.domain.trip.trip.controller;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
-import jakarta.persistence.OrderBy;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,8 +16,6 @@ public class ApiV1TripFeedController {
 
     @GetMapping("/top-liked")
     public RsData<List<TripResponse>> getLikedTop10(
-        @RequestParam Long tripId,
-        @RequestParam Long ownerId,
         @RequestParam(value = "limit", defaultValue = "10") Long likeCount
     ) {
         return new RsData<> (
