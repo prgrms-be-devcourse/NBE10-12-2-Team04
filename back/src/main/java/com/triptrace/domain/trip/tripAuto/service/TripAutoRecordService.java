@@ -187,7 +187,6 @@ public class TripAutoRecordService {
 
     private boolean hasAutoRecordMetadata(Image image) {
         // 촬영 시간과 GPS가 모두 있어야 자동 분리 기준으로 사용 가능
-        // 이미지 엔티티 수정에 따라 변경 가능성 high
         return image.getCapturedAt() != null
             && image.getGpsLat() != null
             && image.getGpsLng() != null;
