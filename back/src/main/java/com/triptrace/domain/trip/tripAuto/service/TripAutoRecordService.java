@@ -110,8 +110,8 @@ public class TripAutoRecordService {
 
         return new TripAutoRecordResponse(
             trip.getId(),
-            records.size(),
-            records.size(),
+            records.size(), //생성된 post카운트
+            records.size(), //생성된 marker카운트 -> 자동생성이라 post와 marker의 개수가 같음
             usableImages.size(),
             images.size() - usableImages.size(),
             records
