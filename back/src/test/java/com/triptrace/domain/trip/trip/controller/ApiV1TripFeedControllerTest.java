@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +72,7 @@ public class ApiV1TripFeedControllerTest {
     }
 
     @Test
+    @WithMockUser
     @DisplayName("좋아요가 있는 공개,비공개 여행기를 세팅해놓고 좋아요 수 상위 10개 조회 테스트")
     public void getLikedTop10AllTrips() throws Exception {
         Member member1 = createMember("member1");
@@ -161,8 +164,6 @@ public class ApiV1TripFeedControllerTest {
         tripLikeService.createLike(member2.getId(), trip2.getId());
         tripLikeService.createLike(member1.getId(), trip1.getId());
 
-        List<TripResponse> tripList = tripService.findTop10PublicTripsByLikeCount();
-
         mvc.perform(
             get("/api/v1/feed/trips/top-liked"))
             .andDo(print())
@@ -172,6 +173,7 @@ public class ApiV1TripFeedControllerTest {
     }
 
     @Test
+    @WithMockUser
     @DisplayName("좋아요 Top10 조회 테스트")
     public void getLikedTop10VisibilityTrue() throws Exception {
         Member member1 = createMember("member1");
@@ -263,13 +265,11 @@ public class ApiV1TripFeedControllerTest {
         tripLikeService.createLike(member2.getId(), trip2.getId());
         tripLikeService.createLike(member1.getId(), trip1.getId());
 
-        List<TripResponse> tripList = tripService.findTop10PublicTripsByLikeCount();
-
         mvc.perform(
                 get("/api/v1/feed/trips/top-liked"))
             .andDo(print())
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.length()").value(9))
+            .andExpect(jsonPath("$.data.length()").value(10))
             .andExpect(jsonPath("$.data[0].title").value("공개여행기10"));
     }
 }
