@@ -3,7 +3,9 @@ package com.triptrace.domain.marker.marker.service;
 import com.triptrace.domain.marker.marker.dto.MarkerCreateRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerModifyRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerResponse;
+import com.triptrace.domain.marker.marker.dto.PlaceCandidateResponse;
 import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.place.GooglePlacesClient;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
@@ -19,6 +21,7 @@ public class MarkerService {
 
     private final MarkerRepository markerRepository;
     private final PostRepository postRepository;
+    private final GooglePlacesClient googlePlacesClient;
 
     // 권한 체크
     private void validateOwner(Post post, Long memberId) {
@@ -70,6 +73,18 @@ public class MarkerService {
             .orElseThrow(() -> new ServiceException("404-1", "마커를 찾을 수 없습니다."));
 
         return new MarkerResponse(marker);
+    }
+
+    // 장소명 후보 조회
+    public List<PlaceCandidateResponse> getPlaceCandidates(Long markerId, Long memberId) {
+
+        Marker marker = markerRepository.findById(markerId)
+            .orElseThrow(() -> new ServiceException("404-1", "마커를 찾을 수 없습니다."));
+
+        validateOwner(marker.getPost(), memberId);
+
+        // 자동 생성 때는 지역명만 저장하고, 사용자가 수정 화면에서 펼칠 때만 주변 상호명을 조회한다.
+        return googlePlacesClient.findNearbyPlaces(marker.getCenterLat(), marker.getCenterLng());
     }
 
     // 수정
