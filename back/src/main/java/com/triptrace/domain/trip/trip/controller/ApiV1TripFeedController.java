@@ -22,4 +22,13 @@ public class ApiV1TripFeedController {
             tripService.findTop10PublicTripsByLikeCount()
         );
     }
+
+    @GetMapping("/recent")
+    public RsData<List<TripResponse>> getVisibilityTrueOrderByCreatedAtDesc() {
+        return new RsData<> (
+            "200-1",
+            "여행기 최신순 조회에 성공했습니다.",
+            tripService.findPublicTripsByCreatedAtDesc()
+        );
+    }
 }

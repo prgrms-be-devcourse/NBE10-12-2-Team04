@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -85,6 +86,15 @@ public class ApiV1TripFeedControllerTest {
         return tripList;
     }
 
+    public List<Trip> createPrivateTripList(int num) {
+        List<Member> ownerList = new ArrayList();
+        List<Trip> privateTripList = new ArrayList();
+        for (int i = 1; i <= num; i++) {
+            ownerList.add(createMember("owner%d".formatted(i + num)));
+            privateTripList.add(createTrip(ownerList.get(i - 1), "비공개여행기%d".formatted(i), false));
+        }
+        return privateTripList;
+    }
 
 
     @Test
@@ -153,7 +163,7 @@ public class ApiV1TripFeedControllerTest {
         tripLikeService.createLike(memberList.get(0).getId(), tripList.get(0).getId());
 
         mvc.perform(
-            get("/api/v1/feed/trips/top-liked"))
+                get("/api/v1/feed/trips/top-liked"))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.length()").value(9))
@@ -230,5 +240,40 @@ public class ApiV1TripFeedControllerTest {
             .andExpect(jsonPath("$.data.length()").value(10))
             .andExpect(jsonPath("$.data[0].title").value("공개여행기10"));
     }
-}
 
+    @Test
+    @WithMockUser
+    @DisplayName("공개여행기 중 최신순 조회 테스트")
+    public void getVisibilityTrueOrderByCreatedAtDesc() throws Exception {
+        List<Member> memberList = creatMemberList(10);
+        List<Trip> tripList = creatTripList(10);
+
+        mvc.perform(
+                get("/api/v1/feed/trips/recent"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(10))
+            .andExpect(jsonPath("$.data[0]").exists())
+            .andExpect(jsonPath("$.data[9]").exists())
+            .andExpect(jsonPath("$.data[10]").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("비공개여행기와 공개여행기 전부 있을 때 공개여행기만 최신순피드에 조회되는지 테스트")
+    public void getOrderByCreatedAtDesc() throws Exception {
+        List<Member> memberList = creatMemberList(10);
+        List<Trip> tripList = creatTripList(10);
+        List<Trip> privateTripList = createPrivateTripList(10);
+
+        mvc.perform(
+                get("/api/v1/feed/trips/recent"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(10))
+            .andExpect(jsonPath("$.data[0]").exists())
+            .andExpect(jsonPath("$.data[9]").exists())
+            .andExpect(jsonPath("$.data[10]").doesNotExist())
+            .andExpect(jsonPath("$.data[19]").doesNotExist());
+    }
+}

@@ -96,10 +96,19 @@ public class TripService {
         tripRepository.delete(trip);
     }
 
-    // 좋아요 수 상위 10개 조회 메서드 추가
+    // 공개여행기 중 좋아요 수 상위 10개 조회 메서드 추가
     @Transactional(readOnly = true)
     public List<TripResponse> findTop10PublicTripsByLikeCount() {
         return tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc()
+            .stream()
+            .map(TripResponse::new)
+            .toList();
+    }
+
+    // 공개여행기 중 createdAt 기준 내림차순 조회 메서드 추가
+    @Transactional(readOnly = true)
+    public List<TripResponse> findPublicTripsByCreatedAtDesc() {
+        return tripRepository.findByVisibilityTrueOrderByCreatedAtDesc()
             .stream()
             .map(TripResponse::new)
             .toList();
