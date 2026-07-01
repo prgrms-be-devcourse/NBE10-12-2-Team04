@@ -99,7 +99,7 @@ public class TripService {
     // 좋아요 수 상위 10개 조회 메서드 추가
     @Transactional(readOnly = true)
     public List<TripResponse> findTop10PublicTripsByLikeCount() {
-        return tripRepository.findTop10ByOrderByLikeCountDesc()
+        return tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc()
             .stream()
             .map(TripResponse::new)
             .toList();

@@ -30,10 +30,12 @@ public class TripRepositoryTest {
     private MemberRepository memberRepository;
     @Autowired
     private TripLikeService tripLikeService;
+    private Member member1;
+    private Trip trip1;
 
     @BeforeEach
     public void setup() {
-        Member member1 = memberRepository.save(new Member(
+        member1 = memberRepository.save(new Member(
             "member1@test.com",
             "member1",
             "password1234",
@@ -213,7 +215,7 @@ public class TripRepositoryTest {
             MemberStatus.ACTIVE
         ));
 
-        Trip trip1 = tripRepository.save(new Trip(
+        trip1 = tripRepository.save(new Trip(
             owner1,
             "title1",
             "country1",
@@ -373,7 +375,7 @@ public class TripRepositoryTest {
     @Test
     @DisplayName("좋아요 상위 10개 조회 테스트")
     public void t1() {
-        List<Trip> tripList = tripRepository.findTop10ByOrderByLikeCountDesc();
+        List<Trip> tripList = tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc();
         System.out.println(tripList.get(0).getLikeCount());
         System.out.println(tripList.get(1).getLikeCount());
         System.out.println(tripList.get(2).getLikeCount());
@@ -385,4 +387,48 @@ public class TripRepositoryTest {
         System.out.println(tripList.get(8).getLikeCount());
         System.out.println(tripList.get(9).getLikeCount());
     }
+
+    @Test
+    @DisplayName("좋아요가 있는 비공개여행기의 경우 좋아요 상위 10개 조회시 조회여부 테스트")
+    public void t2() throws Exception {
+        Member owner11 = memberRepository.save(new Member(
+            "owner11@test.com",
+            "owner11",
+            "password1234",
+            UUID.randomUUID().toString(),
+            "imageUrl",
+            MemberStatus.ACTIVE
+        ));
+
+        Trip trip11 = tripRepository.save(new Trip(
+            owner11,
+            "title11",
+            "country11",
+            "city11",
+            LocalDateTime.now().minusMonths(12),
+            LocalDateTime.now().minusMonths(6),
+            false
+        ));
+
+        tripLikeService.deleteLike(member1.getId(), trip1.getId());
+
+        tripLikeService.createLike(member1.getId(), trip11.getId());
+
+        List<Trip> tripList = tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc();
+
+        System.out.println(tripList.get(0).getLikeCount());
+        System.out.println(tripList.get(1).getLikeCount());
+        System.out.println(tripList.get(2).getLikeCount());
+        System.out.println(tripList.get(3).getLikeCount());
+        System.out.println(tripList.get(4).getLikeCount());
+        System.out.println(tripList.get(5).getLikeCount());
+        System.out.println(tripList.get(6).getLikeCount());
+        System.out.println(tripList.get(7).getLikeCount());
+        System.out.println(tripList.get(8).getLikeCount());
+        System.out.println(tripList.get(9).getLikeCount());
+        System.out.println(tripList.getLast().getId());
+    }
 }
+
+
+

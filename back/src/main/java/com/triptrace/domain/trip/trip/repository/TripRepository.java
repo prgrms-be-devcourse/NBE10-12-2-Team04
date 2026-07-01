@@ -11,6 +11,6 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
 
     List<Trip> findByVisibilityTrue();
 
-    // 좋아요 수 상위 10개 조회 쿼리 추가
-    List<Trip> findTop10ByOrderByLikeCountDesc();
+    // 공개여행기 중 좋아요 수 상위 10개 조회 쿼리 추가
+    List<Trip> findTop10ByVisibilityTrueOrderByLikeCountDesc();
 }
