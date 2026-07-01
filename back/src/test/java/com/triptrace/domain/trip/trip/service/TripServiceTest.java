@@ -121,6 +121,30 @@ class TripServiceTest {
     }
 
     @Test
+    @DisplayName("소유자는 공개 여부와 무관하게 Trip 엔티티를 조회할 수 있다.")
+    void findOwnedTripByOwner() {
+        Member owner = createMember("owner");
+        Trip privateTrip = createTrip(owner, "이미지 업로드 대상 여행기", false);
+
+        Trip found = tripService.findOwnedTrip(privateTrip.getId(), owner.getId());
+
+        assertThat(found.getId()).isEqualTo(privateTrip.getId());
+        assertThat(found.getTitle()).isEqualTo("이미지 업로드 대상 여행기");
+    }
+
+    @Test
+    @DisplayName("소유자가 아니면 공개 여행기도 내부 처리용 Trip 엔티티로 조회할 수 없다.")
+    void findOwnedTripByNotOwner() {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        Trip publicTrip = createTrip(owner, "공개 여행기");
+
+        assertThatThrownBy(() -> tripService.findOwnedTrip(publicTrip.getId(), other.getId()))
+            .isInstanceOf(ServiceException.class)
+            .hasMessage("403-1 : 여행기에 대한 권한이 없습니다.");
+    }
+
+    @Test
     @DisplayName("소유자는 여행기를 수정할 수 있다.")
     void modifyByOwner() {
         Member owner = createMember("owner");
