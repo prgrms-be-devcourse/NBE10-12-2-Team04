@@ -2,9 +2,10 @@ package com.triptrace.domain.auth.auth.controller;
 
 import com.triptrace.domain.auth.auth.dto.LoginRequest;
 import com.triptrace.domain.auth.auth.dto.LoginResponse;
-import com.triptrace.domain.auth.auth.dto.LoginResult;
+import com.triptrace.domain.auth.auth.dto.ReissueResponse;
 import com.triptrace.domain.auth.auth.dto.SignupRequest;
 import com.triptrace.domain.auth.auth.dto.SignupResponse;
+import com.triptrace.domain.auth.auth.dto.TokenPair;
 import com.triptrace.domain.auth.auth.service.AuthService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,17 +46,32 @@ public class ApiV1AuthController {
         @RequestBody @Valid LoginRequest request,
         HttpServletResponse response
     ) {
-        LoginResult result = authService.login(request);
+        TokenPair tokens = authService.login(request);
+        addRefreshTokenCookie(response, tokens.refreshToken());
 
-        // RT는 body에 노출하지 않고 HttpOnly 쿠키로만 내려준다.
-        ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", result.refreshToken())
+        return new RsData<>("200-1", "로그인 성공", new LoginResponse(tokens.accessToken()));
+    }
+
+    @PostMapping("/auth/reissue")
+    public RsData<ReissueResponse> reissue(
+        @CookieValue(value = "refreshToken", required = false) String refreshToken,
+        HttpServletResponse response
+    ) {
+        TokenPair tokens = authService.reissue(refreshToken);
+        addRefreshTokenCookie(response, tokens.refreshToken());
+
+        return new RsData<>("200-1", "토큰 재발급 성공", new ReissueResponse(tokens.accessToken()));
+    }
+
+    // RT를 HttpOnly 쿠키로 내려준다. (로그인/재발급 공통)
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
             .httpOnly(true)
             .sameSite("Strict")
             .path("/api/v1/auth")
             .maxAge(Duration.ofSeconds(refreshTokenExpirationSeconds))
             .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
-        return new RsData<>("200-1", "로그인 성공", new LoginResponse(result.accessToken()));
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }
