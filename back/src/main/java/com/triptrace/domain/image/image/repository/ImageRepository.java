@@ -11,7 +11,5 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
 
     List<Image> findByPostId(Long postId);
 
-    List<Image> findByMarkerId(Long markerId);
-
     List<Image> findByOwnerId(Long ownerId);
 }
