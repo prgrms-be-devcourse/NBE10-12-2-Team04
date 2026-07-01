@@ -15,11 +15,11 @@ public class ApiV1TripFeedController {
     private final TripService tripService;
 
     @GetMapping("/top-liked")
-    public RsData<List<TripResponse>> getLikedTop10() {
+    public RsData<List<TripResponse>> getTop10PublicTripsByLikeCount() {
         return new RsData<> (
             "200-1",
             "좋아요 상위 10개 여행기 조회에 성공했습니다.",
-            tripService.findPublicTrips()
+            tripService.findTop10PublicTripsByLikeCount()
         );
     }
 }
