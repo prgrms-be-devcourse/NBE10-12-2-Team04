@@ -5,8 +5,6 @@ import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
-import com.triptrace.domain.trip.tripLike.entity.TripLike;
-import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,8 +39,6 @@ public class ApiV1TripFeedControllerTest {
     private TripLikeService tripLikeService;
     @Autowired
     private MockMvc mvc;
-    @Autowired
-    private TripLikeRepository tripLikeRepository;
 
     private Member createMember(String username) {
         return memberRepository.save(new Member(
