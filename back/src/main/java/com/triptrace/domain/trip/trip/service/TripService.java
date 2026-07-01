@@ -64,10 +64,18 @@ public class TripService {
         return new TripResponse(trip);
     }
 
+    @Transactional(readOnly = true)
+    public Trip findOwnedTrip(Long tripId, Long ownerId) {
+        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
+        // 이미지 업로드처럼 여행기 내부 데이터를 변경하는 로직은 공개 여부와 무관하게 소유자만 접근 가능
+        validateOwner(trip, ownerId);
+
+        return trip;
+    }
+
     @Transactional
     public TripResponse modifyTrip(Long tripId, Long ownerId, TripModifyRequest request) {
-        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
-        validateOwner(trip, ownerId);
+        Trip trip = findOwnedTrip(tripId, ownerId);
 
         trip.modify(
             request.title(),
@@ -83,8 +91,7 @@ public class TripService {
 
     @Transactional
     public void deleteTrip(Long tripId, Long ownerId) {
-        Trip trip = tripRepository.findById(tripId).orElseThrow(() -> new ServiceException("404-1", "여행기를 찾을 수 없습니다."));
-        validateOwner(trip, ownerId);
+        Trip trip = findOwnedTrip(tripId, ownerId);
 
         tripRepository.delete(trip);
     }
