@@ -32,7 +32,7 @@ import static java.util.stream.Collectors.groupingBy;
 @RequiredArgsConstructor
 public class TripAutoRecordService {
 
-    // 같은 날짜 안에서도 사진 간격이 2시간을 넘으면 다른 묶음으로 분리
+    // 같은 날짜 안에서도 클러스터 첫 사진과 2시간을 넘게 차이나면 다른 묶음으로 분리
     private static final long CLUSTER_TIME_GAP_MINUTES = 120;
 
     private final TripRepository tripRepository;
@@ -138,19 +138,23 @@ public class TripAutoRecordService {
         List<List<Image>> clusters = new ArrayList<>();
 
         for (List<Image> dailyImages : imagesByDate.values()) {
-            // 같은 날짜 안에서는 촬영 시간순으로 돌면서 이전 이미지와 비교해 새 묶음 여부를 결정
+            // 같은 날짜 안에서는 촬영 시간순으로 돌면서 클러스터 첫 이미지와 비교해 새 묶음 여부를 결정
             List<Image> currentCluster = new ArrayList<>();
-            Image previousImage = null;
+            Image clusterStartImage = null;
 
             for (Image image : dailyImages) {
-                // 시간 간격 기준을 넘으면 현재 묶음을 닫고 새 묶음을 시작
-                if (previousImage != null && shouldStartNewCluster(previousImage, image)) {
+                // 클러스터 첫 사진 기준 2시간을 넘으면 현재 묶음을 닫고 새 묶음을 시작
+                if (clusterStartImage != null && shouldStartNewCluster(clusterStartImage, image)) {
                     clusters.add(currentCluster);
                     currentCluster = new ArrayList<>();
+                    clusterStartImage = image;
+                }
+
+                if (clusterStartImage == null) {
+                    clusterStartImage = image;
                 }
 
                 currentCluster.add(image);
-                previousImage = image;
             }
 
             if (!currentCluster.isEmpty()) {
@@ -161,15 +165,15 @@ public class TripAutoRecordService {
         return clusters;
     }
 
-    private boolean shouldStartNewCluster(Image previousImage, Image currentImage) {
-        // 같은 날짜 안에서 2시간 이상 떨어진 사진은 다른 순간의 기록으로 판단
-        return exceedsTimeGap(previousImage, currentImage);
+    private boolean shouldStartNewCluster(Image clusterStartImage, Image currentImage) {
+        // 같은 날짜 안에서 클러스터 첫 사진과 2시간을 초과해 떨어진 사진은 다른 기록으로 판단
+        return exceedsTimeGap(clusterStartImage, currentImage);
     }
 
-    private boolean exceedsTimeGap(Image previousImage, Image currentImage) {
-        // 같은 날짜라도 촬영 간격이 너무 길면 별도 기록으로 나눔
+    private boolean exceedsTimeGap(Image clusterStartImage, Image currentImage) {
+        // 클러스터가 계속 이어져도 시작 사진 기준 2시간을 넘으면 별도 기록으로 나눔
         long minutes = Duration.between(
-            previousImage.getCapturedAt(),
+            clusterStartImage.getCapturedAt(),
             currentImage.getCapturedAt()
         ).abs().toMinutes();
 
