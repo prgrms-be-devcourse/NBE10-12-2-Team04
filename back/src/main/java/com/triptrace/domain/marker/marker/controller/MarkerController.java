@@ -3,6 +3,7 @@ package com.triptrace.domain.marker.marker.controller;
 import com.triptrace.domain.marker.marker.dto.MarkerCreateRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerModifyRequest;
 import com.triptrace.domain.marker.marker.dto.MarkerResponse;
+import com.triptrace.domain.marker.marker.dto.PlaceCandidateResponse;
 import com.triptrace.domain.marker.marker.service.MarkerService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.Valid;
@@ -57,6 +58,20 @@ public class MarkerController {
             "200-1",
             "마커 조회에 성공했습니다.",
             markerService.getMarker(markerId)
+        );
+    }
+
+    // 마커 장소명 후보 조회
+    @GetMapping("/posts/markers/{markerId}/place-candidates")
+    public RsData<List<PlaceCandidateResponse>> getPlaceCandidates(
+        @PathVariable Long markerId,
+        @RequestParam Long memberId
+    ) {
+
+        return new RsData<>(
+            "200-1",
+            "마커 장소명 후보 조회에 성공했습니다.",
+            markerService.getPlaceCandidates(markerId, memberId)
         );
     }
 

@@ -79,4 +79,10 @@ public class Image extends BaseEntity {
         this.mimeType = mimeType;
         this.uploadStatus = uploadStatus;
     }
+
+    // 자동 생성 결과로 만들어진 Post에 이미지를 배치
+    // 추후 이미지 관계 테이블 도입 시 관계 테이블로 이전
+    public void connectPost(Post post) {
+        this.post = post;
+    }
 }

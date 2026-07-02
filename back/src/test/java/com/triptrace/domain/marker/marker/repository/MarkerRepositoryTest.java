@@ -1,5 +1,8 @@
 package com.triptrace.domain.marker.marker.repository;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import com.triptrace.domain.member.member.entity.Member;
@@ -38,6 +41,9 @@ class MarkerRepositoryTest {
     @Autowired
     private PostRepository postRepository;
 
+    @Autowired
+    private ImageRepository imageRepository;
+
     @Test
     @DisplayName("게시글 ID로 대표 마커를 조회한다")
     void findByPostId() {
@@ -54,6 +60,7 @@ class MarkerRepositoryTest {
         Optional<Marker> foundMarker = markerRepository.findByPostId(post.getId());
 
         assertThat(foundMarker).contains(marker);
+        assertThat(foundMarker.get().getRepresentativeImage()).isNull();
     }
 
     @Test
@@ -80,6 +87,40 @@ class MarkerRepositoryTest {
 
         assertThatThrownBy(() -> markerRepository.saveAndFlush(duplicateMarker))
             .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("마커는 대표 이미지를 연결할 수 있다")
+    void representativeImage() {
+        Post post = savePost("대표 이미지가 있는 마커");
+        Image image = imageRepository.save(new Image(
+            post.getTrip().getOwner(),
+            post.getTrip(),
+            post,
+            "https://example.com/images/kyoto.jpg",
+            "https://example.com/images/kyoto-thumbnail.jpg",
+            1024L,
+            "image/jpeg",
+            UploadStatus.STORED
+        ));
+
+        Marker marker = markerRepository.saveAndFlush(new Marker(
+            post,
+            BigDecimal.valueOf(35.0116363),
+            BigDecimal.valueOf(135.7680294),
+            "교토역",
+            LocalDateTime.of(2024, 4, 1, 12, 0),
+            MarkerSource.AUTO,
+            image
+        ));
+
+        Optional<Marker> foundMarker = markerRepository.findByPostId(post.getId());
+
+        assertThat(foundMarker).contains(marker);
+        assertThat(foundMarker.get().getRepresentativeImage()).isEqualTo(image);
+        // 마커는 대표 Image를 참조하고, 화면용 썸네일 URL은 Image에서 가져온다.
+        assertThat(foundMarker.get().getRepresentativeImage().getThumbnailUrl())
+            .isEqualTo("https://example.com/images/kyoto-thumbnail.jpg");
     }
 
     private Post savePost(String title) {
