@@ -1,5 +1,6 @@
 package com.triptrace.global.exception;
 
+import com.triptrace.domain.image.image.catalog.ErrorCode;
 import com.triptrace.global.rsData.RsData;
 
 public class ServiceException extends RuntimeException {
@@ -10,6 +11,9 @@ public class ServiceException extends RuntimeException {
         super(resultCode + " : " + msg);
         this.resultCode = resultCode;
         this.msg = msg;
+    }
+    public ServiceException(ErrorCode errorCode) {
+        this(errorCode.getResultCode(), errorCode.getMessage());
     }
 
     public RsData<Void> getRsData() {

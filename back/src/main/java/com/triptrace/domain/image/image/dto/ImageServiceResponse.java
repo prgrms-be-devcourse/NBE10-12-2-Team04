@@ -2,16 +2,19 @@ package com.triptrace.domain.image.image.dto;
 
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.member.member.entity.Member;
+import com.triptrace.domain.post.post.entity.Post;
+import com.triptrace.domain.trip.trip.entity.Trip;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 public record ImageServiceResponse(
-    Long ownerId,
-    Long tripId,
-    Long postId,
-    Long markerId,
+    Long id,
+    Member owner,
+    Trip trip,
+    Post post,
     String originalFileUrl,
     String thumbnailUrl,
     String mimeType,
@@ -21,23 +24,4 @@ public record ImageServiceResponse(
     String deviceInfo,
     UploadStatus uploadStatus
 ) {
-    public ImageServiceResponse(Image image){
-        //gps값 정확도 희석
-        BigDecimal latitude = image.getGpsLat().setScale(4, RoundingMode.FLOOR);
-        BigDecimal longitude = image.getGpsLat().setScale(4, RoundingMode.FLOOR);
-        this(
-            image.getOwner().getId(),
-            image.getTrip().getId(),
-            image.getPost().getId(),
-            image.getMarker().getId(),
-            image.getOriginalFileUrl(),
-            image.getThumbnailUrl(),
-            image.getMimeType(),
-            image.getGpsLat(),
-            image.getGpsLng(),
-            image.getCapturedAt(),
-            image.getDeviceInfo(),
-            image.getUploadStatus()
-        );
-    }
 }

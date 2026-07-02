@@ -1,5 +1,6 @@
 package com.triptrace.global.globalExceptionHandler;
 
+import com.triptrace.domain.image.image.module.exception.ImageProcessException;
 import com.triptrace.global.exception.ServiceException;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.ConstraintViolationException;
@@ -106,6 +107,19 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ServiceException.class)
     public ResponseEntity<RsData<Void>> handle(ServiceException ex) {
+        RsData<Void> rsData = ex.getRsData();
+
+        return new ResponseEntity<>(
+            rsData,
+            ResponseEntity
+                .status(rsData.statusCode())
+                .build()
+                .getStatusCode()
+        );
+    }
+
+    @ExceptionHandler(ImageProcessException.class)
+    public ResponseEntity<RsData<Void>> handle(ImageProcessException ex) {
         RsData<Void> rsData = ex.getRsData();
 
         return new ResponseEntity<>(

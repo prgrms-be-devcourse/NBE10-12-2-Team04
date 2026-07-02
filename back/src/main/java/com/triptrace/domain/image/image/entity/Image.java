@@ -11,6 +11,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -19,7 +20,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Image extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
@@ -59,6 +60,34 @@ public class Image extends BaseEntity {
     @Column(length = 10, nullable = false)
     private UploadStatus uploadStatus;
 
+    //all args
+    public Image(
+        Member owner,
+        Trip trip,
+        Post post,
+        String originalFileUrl,
+        String thumbnailUrl,
+        Long fileSize,
+        String mimeType,
+        BigDecimal gpsLat,
+        BigDecimal gpsLng,
+        LocalDateTime capturedAt,
+        String deviceInfo,
+        UploadStatus uploadStatus
+    ){
+        this.owner = owner;
+        this.trip = trip;
+        this.post = post;
+        this.originalFileUrl = originalFileUrl;
+        this.thumbnailUrl = thumbnailUrl;
+        this.fileSize = fileSize;
+        this.mimeType = mimeType;
+        this.gpsLat = gpsLat;
+        this.gpsLng = gpsLng;
+        this.capturedAt = capturedAt;
+        this.deviceInfo = deviceInfo;
+        this.uploadStatus = uploadStatus;
+    }
     // 업로드 시점에 알 수 있는 기본 이미지 정보만 먼저 저장
     public Image(
         Member owner,
@@ -70,13 +99,24 @@ public class Image extends BaseEntity {
         String mimeType,
         UploadStatus uploadStatus
     ) {
-        this.owner = owner;
-        this.trip = trip;
+        this(owner,
+            trip,
+            post,
+            originalFileUrl,
+            thumbnailUrl,
+            fileSize,
+            mimeType,
+            null,
+            null,
+            null,
+            null,
+            uploadStatus
+        );
+    }
+    public void modifyPost(Post post){
         this.post = post;
-        this.originalFileUrl = originalFileUrl;
-        this.thumbnailUrl = thumbnailUrl;
-        this.fileSize = fileSize;
-        this.mimeType = mimeType;
+    }
+    public void modifyStatus(UploadStatus uploadStatus){
         this.uploadStatus = uploadStatus;
     }
 }

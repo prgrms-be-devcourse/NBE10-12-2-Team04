@@ -4,16 +4,16 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter(value= AccessLevel.PACKAGE)
 public class ImageInfo{
     private int  width;
     private int height;
-    private double longitude;
-    private double latitude;
-    private Date capturedAt;
+    private Double longitude;
+    private Double latitude;
+    private LocalDateTime capturedAt;
     private String timeZone;
     private String model;
     private String maker;
@@ -22,15 +22,15 @@ public class ImageInfo{
     private long fileSize;
     ImageInfo(){
         width = height = 0;
-        longitude = 360.0;
-        latitude = 360.0;
-        timeZone = "";
-        model = "";
-        maker = "";
+        longitude = null;
+        latitude = null;
+        timeZone = null;
+        model = null;
+        maker = null;
         orientation = 0;
-        mimeType = "";
+        mimeType = null;
         fileSize = 0;
-        capturedAt = new Date();
+        capturedAt = null;
     }
     @Override
     public String toString(){
@@ -40,7 +40,7 @@ public class ImageInfo{
             .append("\n height: " + height)
             .append("\n longitude: " + longitude)
             .append("\n latitude: " + latitude)
-            .append("\n capturedAt: " + capturedAt)
+            .append("\n capturedAt: " + capturedAt.toString())
             .append("\n timeZone: " + timeZone)
             .append("\n model: " + model)
             .append("\n maker: " + maker)
