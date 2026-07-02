@@ -13,7 +13,6 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.triptrace.domain.image.image.module.exception.ImageProcessException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -38,7 +37,6 @@ import java.util.UUID;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ImageProcessor {
     //TODO: 추후 front에서 사용할 크기 논의 후 변경
     private static final int THUMBNAIL_WIDTH = 1024;
@@ -50,15 +48,15 @@ public class ImageProcessor {
     private static final String IMAGE_PROCESSING_ERROR = "400-2";
 
     //서빙용 이미지 보관 경로
-    private String servingImagesPath;
+    private final String servingImagesPath;
     //섬네일 이미지 보관 경로
-    private String thumbnailImagesPath;
+    private final String thumbnailImagesPath;
 
     public ImageProcessor(
         @Value("${custom.servingImage}")    String serving,
         @Value("${custom.thumbnailImage}")  String thumbnail) {
-        servingImagesPath = serving;
-        thumbnailImagesPath = thumbnail;
+        this.servingImagesPath = serving;
+        this.thumbnailImagesPath = thumbnail;
     }
 
     public void showAllInfoByMetaData(Metadata metadata){

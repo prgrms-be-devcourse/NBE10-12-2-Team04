@@ -39,4 +39,10 @@ public class MemberService {
         return memberRepository.findByEmail(email)
             .orElseThrow(() -> new ServiceException("401-1", "이메일 또는 비밀번호가 올바르지 않습니다."));
     }
+
+    @Transactional(readOnly = true)
+    public Member findById(Long memberId) {
+        return memberRepository.findById(memberId)
+            .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+    }
 }

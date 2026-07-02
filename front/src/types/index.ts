@@ -11,13 +11,16 @@ export interface User {
 
 export interface Trip {
   id: string;
+  ownerId?: string;
   title: string;
   country: string;
   city: string;
   startDate: string;
   endDate: string;
   isPublic: boolean;
-  thumbnailUrl?: string; // TODO: 백엔드 TripResponse에 추가 필요
+  thumbnailUrl?: string;
+  representativeLat?: number;
+  representativeLng?: number;
   recordCount: number;
   likeCount: number;
   liked?: boolean;
@@ -56,17 +59,27 @@ export interface Marker {
 }
 
 export interface AutoRecord {
+  postId?: string | number;
+  markerId?: string | number;
   date: string;
-  dayOfWeek: string;
-  title: string;
-  location: string;
-  imageCount: number;
+  dayOfWeek?: string;
+  title?: string;
+  location?: string;
+  representativeThumbnailUrl?: string;
+  imageCount?: number;
+  imageIds?: Array<string | number>;
+  centerLat?: string | number;
+  centerLng?: string | number;
 }
 
 export interface AutoRecordResult {
-  totalRecords: number;
-  totalMarkers: number;
-  usedImages: number;
-  excludedImages: number;
+  totalRecords?: number;
+  totalMarkers?: number;
+  usedImages?: number;
+  excludedImages?: number;
+  generatedPostCount?: number;
+  generatedMarkerCount?: number;
+  usedImageCount?: number;
+  skippedImageCount?: number;
   records: AutoRecord[];
 }

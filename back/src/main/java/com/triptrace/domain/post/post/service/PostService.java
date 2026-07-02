@@ -1,5 +1,10 @@
 package com.triptrace.domain.post.post.service;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.image.image.support.ImageUrlResolver;
+import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.dto.PostCreateRequest;
 import com.triptrace.domain.post.post.dto.PostModifyRequest;
 import com.triptrace.domain.post.post.dto.PostResponse;
@@ -13,12 +18,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
     private final PostRepository postRepository;
     private final TripRepository tripRepository;
+    private final ImageRepository imageRepository;
+    private final MarkerRepository markerRepository;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public PostResponse create(Long tripId, Long ownerId, PostCreateRequest request) {
@@ -33,7 +44,7 @@ public class PostService {
             request.memo()
         ));
 
-        return new PostResponse(post);
+        return toResponse(post);
     }
 
     @Transactional(readOnly = true)
@@ -45,10 +56,8 @@ public class PostService {
             validateOwner(trip, ownerId);
         }
 
-        return postRepository.findByTripIdOrderByDateAsc(tripId)
-            .stream()
-            .map(PostResponse::new)
-            .toList();
+        List<Post> posts = postRepository.findByTripIdOrderByDateAsc(tripId);
+        return toResponses(posts);
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +69,7 @@ public class PostService {
             validateOwner(post.getTrip(), ownerId);
         }
 
-        return new PostResponse(post);
+        return toResponse(post);
     }
 
     @Transactional
@@ -75,7 +84,7 @@ public class PostService {
             request.memo()
         );
 
-        return new PostResponse(post);
+        return toResponse(post);
     }
 
     @Transactional
@@ -91,5 +100,36 @@ public class PostService {
         if (!trip.getOwner().getId().equals(ownerId)) {
             throw new ServiceException("403-1", "여행기에 대한 권한이 없습니다.");
         }
+    }
+
+    private PostResponse toResponse(Post post) {
+        List<Image> images = imageRepository.findByPostId(post.getId());
+        Marker marker = markerRepository.findByPostId(post.getId()).orElse(null);
+        return new PostResponse(post, images, marker, imageUrlResolver);
+    }
+
+    private List<PostResponse> toResponses(List<Post> posts) {
+        if (posts.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> postIds = posts.stream()
+            .map(Post::getId)
+            .toList();
+        Map<Long, List<Image>> imagesByPostId = imageRepository.findByPostIdIn(postIds)
+            .stream()
+            .collect(Collectors.groupingBy(image -> image.getPost().getId()));
+        Map<Long, Marker> markerByPostId = markerRepository.findByPostIdIn(postIds)
+            .stream()
+            .collect(Collectors.toMap(marker -> marker.getPost().getId(), Function.identity()));
+
+        return posts.stream()
+            .map(post -> new PostResponse(
+                post,
+                imagesByPostId.getOrDefault(post.getId(), List.of()),
+                markerByPostId.get(post.getId()),
+                imageUrlResolver
+            ))
+            .toList();
     }
 }

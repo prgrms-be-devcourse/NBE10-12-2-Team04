@@ -39,3 +39,6 @@ custom:
   google:
     maps:
       api-key: ${GOOGLE_MAPS_API_KEY:}
+  servingImage: src/test/resources/images/serving
+  thumbnailImage: src/test/resources/images/thumbnail
+  profileImage: src/test/resources/images/profile

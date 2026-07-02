@@ -12,11 +12,12 @@ export default function SignupPage() {
 
   const [form, setForm] = useState({
     email: '',
-    nickname: '',
+    username: '',
     password: '',
     passwordConfirm: '',
   });
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [profileFile, setProfileFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export default function SignupPage() {
     if (!file) return;
     const url = URL.createObjectURL(file);
     setProfilePreview(url);
-    // TODO: 프로필 이미지 파일 업로드 API 연결 필요 (현재는 imageUrl만 전달 가능)
+    setProfileFile(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,11 +40,19 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
+      let profileImageUrl: string | undefined;
+      if (profileFile) {
+        const formData = new FormData();
+        formData.append('image', profileFile);
+        const uploaded = await authApi.uploadProfileImage(formData);
+        profileImageUrl = uploaded.profileImageUrl;
+      }
+
       await authApi.signup({
         email: form.email,
-        nickname: form.nickname,
+        username: form.username,
         password: form.password,
-        // imageUrl: TODO - 파일 업로드 후 URL 전달
+        profileImageUrl,
       });
       router.push('/auth/login');
     } catch (err) {
@@ -98,8 +107,8 @@ export default function SignupPage() {
             <input
               type="text"
               placeholder="Traveler_shb"
-              value={form.nickname}
-              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             />

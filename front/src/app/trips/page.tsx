@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, X, ChevronDown, Upload, Trash2,
   CheckCircle, MoreVertical, FileText, Heart,
 } from 'lucide-react';
-import { userApi, tripApi } from '@/lib/api';
+import { isAuthenticated, userApi, tripApi } from '@/lib/api';
 import type { Trip, AutoRecordResult } from '@/types';
 
 // ────────────────────────────────────────────────────────────────────
@@ -22,23 +22,34 @@ interface BasicInfo {
   isPublic: boolean;
 }
 
+function getTodayDateInput() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function Step1Basic({
   data,
   onChange,
+  formRef,
 }: {
   data: BasicInfo;
-  onChange: (d: BasicInfo) => void;
+  onChange: Dispatch<SetStateAction<BasicInfo>>;
+  formRef: { current: HTMLFormElement | null };
 }) {
-  const set = (k: keyof BasicInfo, v: string | boolean) => onChange({ ...data, [k]: v });
+  const set = (k: keyof BasicInfo, v: string | boolean) => onChange((prev) => ({ ...prev, [k]: v }));
 
   return (
-    <div className="flex flex-col gap-4">
+    <form ref={formRef} className="flex flex-col gap-4">
       <p className="text-sm text-gray-500">기본 정보 입력</p>
       <p className="text-xs text-gray-400">Trip에 필요한 기본 정보를 입력해주세요.</p>
 
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">여행 제목</label>
         <input
+          name="title"
           placeholder="예) 5박 6일 도쿄 여행"
           value={data.title}
           onChange={(e) => set('title', e.target.value)}
@@ -50,6 +61,7 @@ function Step1Basic({
         <label className="block text-xs font-medium text-gray-700 mb-1">국가</label>
         <div className="relative">
           <select
+            name="country"
             value={data.country}
             onChange={(e) => set('country', e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500 appearance-none bg-white"
@@ -70,6 +82,7 @@ function Step1Basic({
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">도시</label>
         <input
+          name="city"
           placeholder="도시를 입력하세요"
           value={data.city}
           onChange={(e) => set('city', e.target.value)}
@@ -81,6 +94,7 @@ function Step1Basic({
         <div className="flex-1">
           <label className="block text-xs font-medium text-gray-700 mb-1">시작일</label>
           <input
+            name="startDate"
             type="date"
             value={data.startDate}
             onChange={(e) => set('startDate', e.target.value)}
@@ -90,6 +104,7 @@ function Step1Basic({
         <div className="flex-1">
           <label className="block text-xs font-medium text-gray-700 mb-1">종료일</label>
           <input
+            name="endDate"
             type="date"
             value={data.endDate}
             onChange={(e) => set('endDate', e.target.value)}
@@ -114,7 +129,7 @@ function Step1Basic({
         </div>
         <p className="text-xs text-gray-400 mt-1">다른 사용자에게 공개할지 선택하세요.</p>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -124,14 +139,17 @@ function Step1Basic({
 interface UploadedFile {
   file: File;
   status: 'uploading' | 'done' | 'error';
+  errorMessage?: string;
 }
 
 function Step2Images({
   tripId,
+  ownerId,
   files,
   onChange,
 }: {
   tripId: string;
+  ownerId: string;
   files: UploadedFile[];
   onChange: (f: UploadedFile[]) => void;
 }) {
@@ -149,13 +167,22 @@ function Step2Images({
       const fd = new FormData();
       fd.append('images', uf.file);
       try {
-        await tripApi.uploadImages(tripId, fd);
-        uf.status = 'done';
-      } catch {
+        const result = await tripApi.uploadImages(tripId, ownerId, fd);
+        const uploaded = result[0];
+        if (!uploaded || uploaded.uploadStatus === 'FAILED') {
+          uf.status = 'error';
+          uf.errorMessage = 'JPEG 파일이 아니거나 이미지 메타데이터/저장 처리에 실패했습니다.';
+        } else {
+          uf.status = 'done';
+          uf.errorMessage = undefined;
+        }
+      } catch (e) {
         uf.status = 'error';
+        uf.errorMessage = e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.';
       }
     }
     onChange([...files, ...added]);
+    e.target.value = '';
   };
 
   const remove = (i: number) => onChange(files.filter((_, idx) => idx !== i));
@@ -205,6 +232,9 @@ function Step2Images({
                   }`}>
                     {uf.status === 'done' ? '업로드 완료' : uf.status === 'error' ? '실패' : '업로드 중...'}
                   </span>
+                  {uf.status === 'error' && uf.errorMessage && (
+                    <p className="mt-1 line-clamp-2 text-[11px] text-red-500">{uf.errorMessage}</p>
+                  )}
                 </div>
                 <button onClick={() => remove(i)} className="text-gray-300 hover:text-red-400 transition-colors">
                   <Trash2 size={14} />
@@ -235,16 +265,22 @@ function Step3AutoRecord({ result }: { result: AutoRecordResult | null }) {
     </div>
   );
 
+  const generatedPostCount = result.totalRecords ?? result.generatedPostCount ?? 0;
+  const generatedMarkerCount = result.totalMarkers ?? result.generatedMarkerCount ?? 0;
+  const usedImageCount = result.usedImages ?? result.usedImageCount ?? 0;
+  const skippedImageCount = result.excludedImages ?? result.skippedImageCount ?? 0;
+  const records = result.records ?? [];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="bg-gray-50 rounded-xl p-4 text-sm">
         <p className="font-semibold text-gray-700 mb-3">자동 기록 생성 결과</p>
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: '생성된 기록', value: result.totalRecords, icon: FileText },
-            { label: '생성된 마커', value: result.totalMarkers, icon: CheckCircle },
-            { label: '사용 이미지', value: result.usedImages, icon: Upload },
-            { label: '제외 이미지', value: result.excludedImages, icon: X },
+            { label: '생성된 기록', value: generatedPostCount, icon: FileText },
+            { label: '생성된 마커', value: generatedMarkerCount, icon: CheckCircle },
+            { label: '사용 이미지', value: usedImageCount, icon: Upload },
+            { label: '제외 이미지', value: skippedImageCount, icon: X },
           ].map(({ label, value, icon: Icon }) => (
             <div key={label} className="bg-white rounded-lg p-3 flex flex-col items-center gap-1">
               <Icon size={16} className="text-green-600" />
@@ -258,19 +294,23 @@ function Step3AutoRecord({ result }: { result: AutoRecordResult | null }) {
       <div>
         <p className="text-xs font-semibold text-gray-500 mb-2">생성된 기록 목록</p>
         <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
-          {result.records.map((rec, i) => (
+          {records.map((rec, i) => (
             <div key={i} className="flex items-center gap-3 border border-gray-100 rounded-lg p-3 bg-white">
-              <div className="w-12 h-12 bg-gray-200 rounded-md flex-shrink-0" />
+              <div className="aspect-square w-12 overflow-hidden rounded-md bg-gray-200 flex-shrink-0">
+                {rec.representativeThumbnailUrl && (
+                  <img src={rec.representativeThumbnailUrl} alt="" className="h-full w-full object-cover" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-0.5">
-                  <span>{rec.date} ({rec.dayOfWeek})</span>
+                  <span>{rec.date} {rec.dayOfWeek ? `(${rec.dayOfWeek})` : ''}</span>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 truncate">{rec.title}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{rec.title ?? `Post #${rec.postId ?? i + 1}`}</p>
                 <p className="text-xs text-gray-400 flex items-center gap-1">
-                  📍 {rec.location}
+                  📍 {rec.location ?? `${rec.centerLat ?? '-'}, ${rec.centerLng ?? '-'}`}
                 </p>
               </div>
-              <span className="text-xs text-gray-400 flex-shrink-0">사용 이미지 {rec.imageCount}장</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">사용 이미지 {rec.imageCount ?? rec.imageIds?.length ?? 0}장</span>
             </div>
           ))}
         </div>
@@ -288,28 +328,43 @@ function Step3AutoRecord({ result }: { result: AutoRecordResult | null }) {
 // ────────────────────────────────────────────────────────────────────
 function CreateTripModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const today = getTodayDateInput();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [basicInfo, setBasicInfo] = useState<BasicInfo>({
-    title: '', country: '', city: '', startDate: '', endDate: '', isPublic: true,
+    title: '', country: '', city: '', startDate: today, endDate: today, isPublic: true,
   });
   const [createdTripId, setCreatedTripId] = useState<string | null>(null);
+  const [createdOwnerId, setCreatedOwnerId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [autoResult, setAutoResult] = useState<AutoRecordResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const basicFormRef = useRef<HTMLFormElement>(null);
 
   const stepLabels = ['기본 정보', '이미지 업로드', '자동 기록 생성'];
 
   const handleStep1Next = async () => {
-    if (!basicInfo.title || !basicInfo.country || !basicInfo.city || !basicInfo.startDate || !basicInfo.endDate) {
+    const formInfo = {
+      ...basicInfo,
+      title: basicInfo.title.trim(),
+      country: basicInfo.country.trim(),
+      city: basicInfo.city.trim(),
+      startDate: basicInfo.startDate.trim(),
+      endDate: basicInfo.endDate.trim(),
+    };
+
+    setBasicInfo(formInfo);
+
+    if (!formInfo.title || !formInfo.country || !formInfo.city || !formInfo.startDate || !formInfo.endDate) {
       setError('모든 항목을 입력해주세요.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      const res = await tripApi.create(basicInfo) as { id: string };
+      const res = await tripApi.create(formInfo) as Trip;
       setCreatedTripId(res.id);
+      setCreatedOwnerId(res.ownerId ?? '');
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Trip 생성에 실패했습니다.');
@@ -320,6 +375,11 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
 
   const handleStep2Next = async () => {
     if (!createdTripId) return;
+    if (!uploadedFiles.some((file) => file.status === 'done')) {
+      setError('자동 기록 생성을 위해 이미지를 1장 이상 업로드해주세요.');
+      return;
+    }
+    setError('');
     setLoading(true);
     try {
       const res = await tripApi.generateAutoRecords(createdTripId);
@@ -375,9 +435,9 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
 
         {/* 스텝 콘텐츠 */}
         <div className="px-6 pb-4">
-          {step === 1 && <Step1Basic data={basicInfo} onChange={setBasicInfo} />}
-          {step === 2 && createdTripId && (
-            <Step2Images tripId={createdTripId} files={uploadedFiles} onChange={setUploadedFiles} />
+          {step === 1 && <Step1Basic data={basicInfo} onChange={setBasicInfo} formRef={basicFormRef} />}
+          {step === 2 && createdTripId && createdOwnerId && (
+            <Step2Images tripId={createdTripId} ownerId={createdOwnerId} files={uploadedFiles} onChange={setUploadedFiles} />
           )}
           {step === 3 && <Step3AutoRecord result={autoResult} />}
 
@@ -405,7 +465,7 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
           {step === 2 && (
-            <button onClick={handleStep2Next} disabled={loading} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            <button onClick={handleStep2Next} disabled={loading || !uploadedFiles.some((file) => file.status === 'done')} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
               {loading ? '생성 중...' : '자동 기록 생성하기'}
             </button>
           )}
@@ -424,9 +484,13 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
 // 내 Trip 목록 페이지
 // ────────────────────────────────────────────────────────────────────
 export default function TripsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const shouldOpenFromQuery = searchParams.get('create') === '1';
+  const shouldShowCreateModal = showModal || (shouldOpenFromQuery && isAuthenticated());
 
   useEffect(() => {
     userApi
@@ -436,6 +500,30 @@ export default function TripsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!shouldOpenFromQuery) return;
+
+    if (!isAuthenticated()) {
+      router.replace('/auth/login');
+    }
+  }, [router, shouldOpenFromQuery]);
+
+  const handleOpenCreateModal = () => {
+    if (!isAuthenticated()) {
+      router.push('/auth/login');
+      return;
+    }
+
+    setShowModal(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowModal(false);
+    if (shouldOpenFromQuery) {
+      router.replace('/trips');
+    }
+  };
+
   return (
     <div className="p-8 max-w-[900px]">
       <div className="flex items-center justify-between mb-2">
@@ -444,7 +532,7 @@ export default function TripsPage() {
           <p className="text-sm text-gray-400 mt-0.5">내가 다녀온 여행을 기록하고 관리하세요.</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={handleOpenCreateModal}
           className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
           <Plus size={16} /> 새 Trip 만들기
@@ -468,7 +556,7 @@ export default function TripsPage() {
         )}
       </div>
 
-      {showModal && <CreateTripModal onClose={() => setShowModal(false)} />}
+      {shouldShowCreateModal && <CreateTripModal onClose={handleCloseCreateModal} />}
     </div>
   );
 }
@@ -489,8 +577,11 @@ function TripCard({ trip, onDeleted }: { trip: Trip; onDeleted: () => void }) {
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-      {/* 썸네일 placeholder (thumbnailUrl 없음) */}
-      <Link href={`/trips/${trip.id}`} className="block h-[160px] bg-gradient-to-br from-gray-300 to-gray-400 hover:opacity-90 transition-opacity" />
+      <Link href={`/trips/${trip.id}`} className="block h-[160px] overflow-hidden bg-gradient-to-br from-gray-300 to-gray-400 hover:opacity-90 transition-opacity">
+        {trip.thumbnailUrl && (
+          <img src={trip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+        )}
+      </Link>
 
       <div className="p-4">
         <div className="flex items-start justify-between">

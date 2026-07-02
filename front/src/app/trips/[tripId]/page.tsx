@@ -1,34 +1,200 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, X, ChevronRight } from 'lucide-react';
-import { tripApi, postApi, likeApi } from '@/lib/api';
+import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, X, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { isAuthenticated, tripApi, postApi, likeApi, userApi } from '@/lib/api';
 import type { Trip, Post } from '@/types';
 
-// ── 지도 placeholder ──────────────────────────────────────────────────
-function TripMapPlaceholder({ posts }: { posts: Post[] }) {
-  // TODO: 실제 지도 연결 - markers 표시
+const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+const GOOGLE_MAPS_SCRIPT_ID = 'triptrace-google-map-script';
+const mapContainerStyle = { width: '100%', height: '100%' };
+const mapOptions = {
+  disableDefaultUI: true,
+  zoomControl: true,
+  clickableIcons: false,
+  gestureHandling: 'greedy',
+};
+
+function isValidCoordinate(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function getMarkerPosts(posts: Post[]) {
+  return posts.filter((post) =>
+    post.marker &&
+    isValidCoordinate(post.marker.lat) &&
+    isValidCoordinate(post.marker.lng)
+  );
+}
+
+function getMarkerPosition(index: number) {
+  return {
+    top: 30 + (index % 4) * 12,
+    left: 22 + (index % 5) * 14,
+  };
+}
+
+function FallbackTripMap({
+  posts,
+  selectedPostId,
+  onMarkerSelect,
+}: {
+  posts: Post[];
+  selectedPostId: string | null;
+  onMarkerSelect: (post: Post) => void;
+}) {
+  const markerPosts = getMarkerPosts(posts);
+  const points = markerPosts.map((post, index) => ({
+    post,
+    ...getMarkerPosition(index),
+  }));
+
   return (
     <div className="relative w-full h-full bg-gradient-to-br from-blue-100 via-sky-50 to-green-50 rounded-xl overflow-hidden">
       <div className="absolute inset-0 flex items-center justify-center">
         <p className="text-xs text-gray-400">🗺 지도 영역 (TODO: 지도 라이브러리 연결)</p>
       </div>
-      {posts.map((post, i) =>
-        post.marker ? (
-          <div
+      {points.length > 1 && (
+        <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polyline
+            points={points.map((point) => `${point.left},${point.top}`).join(' ')}
+            fill="none"
+            stroke="rgba(5,150,105,0.45)"
+            strokeWidth="1.5"
+            strokeDasharray="4 4"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+      {points.map(({ post, top, left }, i) => (
+          <button
             key={post.id}
-            className="absolute flex flex-col items-center"
-            style={{ top: `${30 + i * 10}%`, left: `${25 + i * 12}%` }}
+            type="button"
+            onClick={() => onMarkerSelect(post)}
+            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg px-2 py-1 transition-transform hover:scale-105"
+            style={{ top: `${top}%`, left: `${left}%` }}
           >
-            <MapPin size={20} className="text-green-600 fill-green-100" />
-            <p className="text-[9px] font-semibold text-gray-700">{post.marker.placeName}</p>
-          </div>
-        ) : null,
+            <span className={`grid h-6 w-6 place-items-center rounded-full border-2 bg-white shadow-sm ${
+              selectedPostId === post.id ? 'border-green-600' : 'border-white'
+            }`}>
+              <MapPin size={18} className="text-green-600 fill-green-100" />
+            </span>
+            <span className="mt-0.5 max-w-24 truncate text-[9px] font-semibold text-gray-700">{post.marker?.placeName}</span>
+            <span className="sr-only">{i + 1}번째 기록으로 이동</span>
+          </button>
+      ))}
+      {!googleMapsApiKey && (
+        <p className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-medium text-gray-500 shadow">
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY가 필요합니다.
+        </p>
       )}
     </div>
   );
+}
+
+function GoogleTripMap({
+  posts,
+  selectedPostId,
+  onMarkerSelect,
+}: {
+  posts: Post[];
+  selectedPostId: string | null;
+  onMarkerSelect: (post: Post) => void;
+}) {
+  const markerPosts = getMarkerPosts(posts);
+  const path = markerPosts.map((post) => ({
+    lat: post.marker!.lat,
+    lng: post.marker!.lng,
+  }));
+  const center = path[0] ?? { lat: 37.5665, lng: 126.978 };
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey,
+    id: GOOGLE_MAPS_SCRIPT_ID,
+  });
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || path.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach((point) => bounds.extend(point));
+    if (path.length === 1) {
+      mapRef.current.setCenter(path[0]);
+      mapRef.current.setZoom(12);
+      return;
+    }
+    mapRef.current.fitBounds(bounds, 56);
+  }, [isLoaded, path.length, posts]);
+
+  if (loadError) {
+    return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-100 via-sky-50 to-green-50">
+        <p className="text-xs text-gray-400">지도를 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  return (
+    <GoogleMap
+      mapContainerStyle={mapContainerStyle}
+      center={center}
+      zoom={12}
+      options={mapOptions}
+      onLoad={(map) => {
+        mapRef.current = map;
+      }}
+      onUnmount={() => {
+        mapRef.current = null;
+      }}
+    >
+      {path.length > 1 && (
+        <Polyline
+          path={path}
+          options={{
+            strokeColor: '#059669',
+            strokeOpacity: 0.75,
+            strokeWeight: 4,
+          }}
+        />
+      )}
+      {markerPosts.map((post, index) => (
+        <Marker
+          key={post.id}
+          position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
+          onClick={() => onMarkerSelect(post)}
+          label={{
+            text: String(index + 1),
+            color: selectedPostId === post.id ? '#ffffff' : '#064e3b',
+            fontSize: '12px',
+            fontWeight: '700',
+          }}
+          title={post.marker?.placeName ?? post.title}
+        />
+      ))}
+    </GoogleMap>
+  );
+}
+
+function TripMap({
+  posts,
+  selectedPostId,
+  onMarkerSelect,
+}: {
+  posts: Post[];
+  selectedPostId: string | null;
+  onMarkerSelect: (post: Post) => void;
+}) {
+  if (!googleMapsApiKey || getMarkerPosts(posts).length === 0) {
+    return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
+  }
+
+  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
 }
 
 // ── Day 탭 ────────────────────────────────────────────────────────────
@@ -61,9 +227,12 @@ function DayTabs({
 }
 
 // ── 타임라인 아이템 ───────────────────────────────────────────────────
-function TimelineItem({ post }: { post: Post }) {
+function TimelineItem({ post, active }: { post: Post; active: boolean }) {
+  const images = post.images ?? [];
+  const content = post.content ?? '';
+
   return (
-    <div className="flex gap-3 py-3 relative">
+    <div className={`flex gap-3 py-3 relative rounded-xl transition-colors ${active ? 'bg-green-50/70 px-2' : ''}`}>
       {/* 세로선 */}
       <div className="flex flex-col items-center">
         <div className="w-2.5 h-2.5 rounded-full bg-green-500 mt-1 flex-shrink-0 z-10" />
@@ -73,18 +242,20 @@ function TimelineItem({ post }: { post: Post }) {
       <div className="flex-1 pb-2">
         <p className="text-xs text-gray-400 mb-0.5">{post.time ?? '시간 미정'}</p>
         <p className="font-semibold text-gray-900 text-sm">{post.title}</p>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-3">{post.content}</p>
+        <p className="text-xs text-gray-500 mt-1 line-clamp-3">{content}</p>
         {post.marker && (
           <p className="text-xs text-gray-400 mt-1 flex items-center gap-0.5">
             <MapPin size={10} /> {post.marker.placeName}
           </p>
         )}
         {/* 이미지 그리드 */}
-        {post.images.length > 0 && (
-          <div className="grid grid-cols-3 gap-1 mt-2">
-            {post.images.slice(0, 3).map((img) => (
-              <img key={img.id} src={img.url} alt="" className="w-full h-16 object-cover rounded-md" />
-            ))}
+        {images.length > 0 && (
+          <div className="mt-2 flex h-44 gap-2 overflow-x-auto pb-1">
+            {images.slice(0, 3).map((img) =>
+              img.url ? (
+                <img key={img.id} src={img.url} alt="" className="h-full w-auto max-w-none rounded-md object-cover" />
+              ) : null,
+            )}
           </div>
         )}
       </div>
@@ -104,41 +275,90 @@ export default function TripDetailPage() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [showDetail, setShowDetail] = useState(true);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
-    Promise.all([
-      tripApi.getOne(tripId),
-      postApi.getList(tripId),
-    ])
-      .then(([t, p]) => {
+    async function loadTripDetail() {
+      try {
+        const [t, p] = await Promise.all([
+          tripApi.getOne(tripId),
+          postApi.getList(tripId),
+        ]);
+
         const tripData = t as Trip;
         const postData = p as Post[];
         setTrip(tripData);
-        setLiked(!!tripData.liked);
+        setLiked(false);
         setLikeCount(tripData.likeCount ?? 0);
         setPosts(postData);
         // 날짜 목록 추출
         const days = [...new Set(postData.map((post) => post.date))].sort();
         if (days.length) setActiveDay(days[0]);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+
+        if (isAuthenticated()) {
+          try {
+            const me = await userApi.getMe() as { id?: string | number };
+            setCurrentUserId(me.id != null ? String(me.id) : null);
+          } catch {
+            setCurrentUserId(null);
+          }
+
+          try {
+            const status = await likeApi.getMine(tripId);
+            setLiked(status.liked);
+          } catch {
+            setLiked(false);
+          }
+        } else {
+          setCurrentUserId(null);
+          setLiked(false);
+        }
+      } catch {
+        setTrip(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTripDetail();
   }, [tripId]);
 
   const handleLike = async () => {
+    if (!isAuthenticated()) {
+      router.push('/auth/login');
+      return;
+    }
+
     try {
       if (liked) {
         await likeApi.unlike(tripId);
         setLiked(false);
-        setLikeCount((n) => n - 1);
+        setLikeCount((n) => Math.max(0, n - 1));
       } else {
         await likeApi.like(tripId);
         setLiked(true);
         setLikeCount((n) => n + 1);
       }
     } catch {
-      // TODO: 미로그인 시 로그인 유도
+      try {
+        const status = await likeApi.getMine(tripId);
+        setLiked(status.liked);
+      } catch {
+        // 좋아요 상태 동기화 실패 시 현재 화면 상태를 유지합니다.
+      }
     }
+  };
+
+  const focusPost = (post: Post) => {
+    setShowDetail(true);
+    setActiveDay(post.date);
+    setFocusedPostId(post.id);
+    window.setTimeout(() => {
+      postRefs.current[post.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
   };
 
   if (loading) {
@@ -161,34 +381,54 @@ export default function TripDetailPage() {
   // 날짜별 posts 그룹
   const days = [...new Set(posts.map((p) => p.date))].sort();
   const dayPosts = posts.filter((p) => p.date === activeDay);
+  const isOwner = !!currentUserId && (
+    trip.ownerId === currentUserId ||
+    trip.author?.id === currentUserId
+  );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] relative">
+    <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
-      <div className="absolute inset-0">
-        <TripMapPlaceholder posts={posts} />
+      <div className={`absolute left-0 right-0 top-0 transition-all duration-300 ${mapExpanded ? 'bottom-0' : 'h-[220px]'}`}>
+        <TripMap posts={posts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} />
       </div>
 
       {/* 상단 네비 */}
-      <div className="relative z-10 flex items-center justify-between px-4 pt-4">
+      <div className="relative z-10 flex items-center justify-between px-5 pt-5">
         <button onClick={() => router.back()} className="w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowLeft size={16} />
         </button>
         <div className="flex items-center gap-2">
-          <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors">
-            <Pencil size={12} /> 수정/편집
-          </Link>
+          <button
+            onClick={() => setMapExpanded((value) => !value)}
+            className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors"
+          >
+            {mapExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {mapExpanded ? '지도 줄이기' : '지도 펼치기'}
+          </button>
+          {isOwner && (
+            <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors">
+              <Pencil size={12} /> 수정/편집
+            </Link>
+          )}
         </div>
       </div>
 
       {/* 하단 상세 패널 */}
       {showDetail && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-white rounded-t-2xl shadow-2xl" style={{ maxHeight: '70vh' }}>
+        <div
+          className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden bg-white rounded-t-2xl shadow-2xl transition-all duration-300 ${
+            mapExpanded ? 'top-[48vh]' : 'top-[220px]'
+          }`}
+        >
           {/* 드래그 핸들 */}
           <div className="flex justify-between items-center px-5 pt-4 pb-2">
             <div className="flex gap-3 items-start">
-              {/* 썸네일 placeholder */}
-              <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 flex-shrink-0" />
+              <div className="w-20 h-20 overflow-hidden rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 flex-shrink-0">
+                {trip.thumbnailUrl && (
+                  <img src={trip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                )}
+              </div>
               <div>
                 <h2 className="font-bold text-gray-900 text-base leading-tight">{trip.title}</h2>
                 <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
@@ -199,8 +439,12 @@ export default function TripDetailPage() {
                 </p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="flex items-center gap-0.5 text-xs text-gray-400">
-                    <img src={trip.author?.profileImageUrl ?? ''} alt="" className="w-4 h-4 rounded-full bg-gray-200" />
-                    {trip.author?.nickname}
+                    {trip.author?.profileImageUrl ? (
+                      <img src={trip.author.profileImageUrl} alt="" className="w-4 h-4 rounded-full bg-gray-200" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full bg-gray-200 inline-block" />
+                    )}
+                    {trip.author?.nickname ?? '작성자'}
                   </span>
                   {trip.isPublic ? (
                     <span className="flex items-center gap-0.5 text-xs text-green-600"><Globe size={10} /> 공개</span>
@@ -231,11 +475,20 @@ export default function TripDetailPage() {
           {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={setActiveDay} />}
 
           {/* 타임라인 */}
-          <div className="overflow-y-auto px-5 pb-6" style={{ maxHeight: '40vh' }}>
+          <div className="flex-1 overflow-y-auto px-5 pb-6">
             {dayPosts.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">이 날의 기록이 없습니다.</p>
             ) : (
-              dayPosts.map((post) => <TimelineItem key={post.id} post={post} />)
+              dayPosts.map((post) => (
+                <div
+                  key={post.id}
+                  ref={(node) => {
+                    postRefs.current[post.id] = node;
+                  }}
+                >
+                  <TimelineItem post={post} active={focusedPostId === post.id} />
+                </div>
+              ))
             )}
           </div>
         </div>
