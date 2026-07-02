@@ -31,12 +31,12 @@ public class ApiV1ImageController {
             imageProcessFacade.uploadImages(ownerId,tripId, images)
         );
     }
-    @DeleteMapping("/trips/{tripId}/images")
+    @DeleteMapping("/trips/{tripId}/posts/{postId}/images/{imageId}")
     public RsData<?> delete(
         @RequestParam Long ownerId,
         @PathVariable Long tripId,
-        @RequestParam Long postId,
-        @RequestParam Long imageId
+        @PathVariable Long postId,
+        @PathVariable Long imageId
     ){
         imageDeleteFacade.deleteById(ownerId,tripId,postId, imageId);
         return new RsData<>(
@@ -46,11 +46,11 @@ public class ApiV1ImageController {
         );
     }
 
-    @DeleteMapping("/trips/{tripId}/images")
+    @DeleteMapping("/trips/{tripId}/posts/{postId}/images")
     public RsData<?> delete(
         @RequestParam Long ownerId,
         @PathVariable Long tripId,
-        @RequestParam Long postId,
+        @PathVariable Long postId,
         @RequestParam String imageUrl
     ){
         imageDeleteFacade.deleteByUrl(ownerId,tripId, postId, imageUrl);
