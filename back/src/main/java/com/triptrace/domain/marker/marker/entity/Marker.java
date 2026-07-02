@@ -1,5 +1,6 @@
 package com.triptrace.domain.marker.marker.entity;
 
+import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -38,14 +39,33 @@ public class Marker extends BaseEntity {
     @Column(length = 10, nullable = false)
     private MarkerSource source;    //자동생성: AUTO, 수동 생성: MANUAL
 
+    // 마커 카드/지도 표시에서 사용할 대표 이미지. 수동 마커는 이미지 없이 생성될 수 있어 null을 허용한다.
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "representative_image_id")
+    private Image representativeImage;
+
     public Marker(Post post, BigDecimal centerLat, BigDecimal centerLng, String placeName, LocalDateTime visitedAt, MarkerSource source) {
+        this(post, centerLat, centerLng, placeName, visitedAt, source, null);
+    }  // 수동 마커의 경우 대표이미지 없이 들어올 수 있어 생성자 오버로딩 처리.
+
+    public Marker(
+        Post post,
+        BigDecimal centerLat,
+        BigDecimal centerLng,
+        String placeName,
+        LocalDateTime visitedAt,
+        MarkerSource source,
+        Image representativeImage
+    ) {
         this.post = post;
         this.centerLat = centerLat;
         this.centerLng = centerLng;
         this.placeName = placeName;
         this.visitedAt = visitedAt;
         this.source = source;
+        this.representativeImage = representativeImage;
     }
+
     public void modify(
         BigDecimal centerLat,
         BigDecimal centerLng,
@@ -58,5 +78,11 @@ public class Marker extends BaseEntity {
         this.placeName = placeName;
         this.visitedAt = visitedAt;
         this.source = source;
+    }
+
+    // 자동 생성 이후 대표 이미지를 재선택하거나, 수동 편집에서 대표 이미지를 교체할 때 사용한다.
+    // 변경 이유가 달라 modify와 분리
+    public void changeRepresentativeImage(Image representativeImage) {
+        this.representativeImage = representativeImage;
     }
 }

@@ -36,3 +36,6 @@ custom:
     expirationSeconds: "#{60*30}"      # 30분
   refreshToken:
     expirationSeconds: "#{60*60*24*7}" # 7일
+  google:
+    maps:
+      api-key: ${GOOGLE_MAPS_API_KEY:}
