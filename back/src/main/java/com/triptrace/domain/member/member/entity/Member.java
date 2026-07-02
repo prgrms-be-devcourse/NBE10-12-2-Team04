@@ -23,9 +23,6 @@ public class Member extends BaseEntity {
     @Column(length = 255, nullable = false)
     private String passwordHash;
 
-    @Column(unique = true)
-    private String apiKey;
-
     @Column(length = 500)
     private String profileImageUrl;
 
@@ -39,14 +36,12 @@ public class Member extends BaseEntity {
         String email,
         String username,
         String passwordHash,
-        String apiKey,
         String profileImageUrl,
         MemberStatus status
     ) {
         this.email = email;
         this.username = username;
         this.passwordHash = passwordHash;
-        this.apiKey = apiKey;
         this.profileImageUrl = profileImageUrl;
         this.status = status;
     }

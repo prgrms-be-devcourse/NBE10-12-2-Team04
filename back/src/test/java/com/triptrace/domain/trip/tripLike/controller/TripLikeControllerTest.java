@@ -58,7 +58,6 @@ public class TripLikeControllerTest {
             "test@test.com",
             "test",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -93,7 +92,6 @@ public class TripLikeControllerTest {
             "test@test.com",
             "test",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -125,7 +123,6 @@ public class TripLikeControllerTest {
             "member@test.com",
             "member",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -155,7 +152,6 @@ public class TripLikeControllerTest {
             "member@test.com",
             "member",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -190,7 +186,6 @@ public class TripLikeControllerTest {
             "member@test.com",
             "member",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
