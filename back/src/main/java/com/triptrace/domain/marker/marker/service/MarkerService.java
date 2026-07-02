@@ -33,12 +33,12 @@ public class MarkerService {
     }
 
     // 생성
-    public MarkerResponse createMarker(Long postId, MarkerCreateRequest request) {
+    public MarkerResponse createMarker(Long postId, Long memberId, MarkerCreateRequest request) {
 
         Post post = postRepository.findById(postId)
             .orElseThrow(() -> new ServiceException("404-1", "게시물을 찾을 수 없습니다."));
 
-        validateOwner(post, request.memberId());
+        validateOwner(post, memberId);
 
         Marker marker = new Marker(
             post,
@@ -88,12 +88,12 @@ public class MarkerService {
     }
 
     // 수정
-    public MarkerResponse modifyMarker(Long markerId, MarkerModifyRequest request) {
+    public MarkerResponse modifyMarker(Long markerId, Long memberId, MarkerModifyRequest request) {
 
         Marker marker = markerRepository.findById(markerId)
             .orElseThrow(() -> new ServiceException("404-1", "마커를 찾을 수 없습니다."));
 
-        validateOwner(marker.getPost(), request.memberId());
+        validateOwner(marker.getPost(), memberId);
 
         marker.modify(
             request.centerLat(),

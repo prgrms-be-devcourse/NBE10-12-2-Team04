@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,10 +22,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -73,7 +76,7 @@ public class TripLikeControllerTest {
         ));
 
         mockMvc.perform(post("/api/v1/trips/{tripId}/likes", trip.getId())
-                .param("memberId", String.valueOf(member.getId()))
+                .with(authentication(auth(member)))
                 .with(csrf()))
             .andDo(print())
             .andExpect(status().isCreated());
@@ -170,7 +173,7 @@ public class TripLikeControllerTest {
 
         mvc.perform(MockMvcRequestBuilders
                 .get("/api/v1/trips/" + trip.getId() + "/likes/me")
-                .param("memberId", String.valueOf(member.getId())))
+                .with(authentication(auth(member))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.resultCode").value("200-1"))
             .andExpect(jsonPath("$.msg").value("좋아요 여부 조회 성공했습니다."))
@@ -202,11 +205,15 @@ public class TripLikeControllerTest {
 
         mvc.perform(
             delete("/api/v1/trips/" + trip.getId() + "/likes")
-                .param("memberId", String.valueOf(member.getId()))
+                .with(authentication(auth(member)))
                 .with(csrf()))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.resultCode").value("409-1"))
             .andExpect(jsonPath("$.msg").value("좋아요한 적이 없는 여행기입니다."))
             .andDo(print());
+    }
+
+    private UsernamePasswordAuthenticationToken auth(Member member) {
+        return new UsernamePasswordAuthenticationToken(member.getId(), null, List.of());
     }
 }

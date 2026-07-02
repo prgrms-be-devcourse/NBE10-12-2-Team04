@@ -11,9 +11,6 @@ import jakarta.validation.constraints.Size;
 public record MarkerCreateRequest(
 
     @NotNull
-    Long memberId,
-
-    @NotNull
     BigDecimal centerLat,
 
     @NotNull

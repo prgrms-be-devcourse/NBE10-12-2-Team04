@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -55,7 +58,7 @@ class ApiV1PostControllerTest {
 
         mvc.perform(post("/api/v1/trips/{tripId}/posts", trip.getId())
                 .with(csrf())
-                .param("ownerId", String.valueOf(owner.getId()))
+                .with(authentication(auth(owner)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -81,7 +84,7 @@ class ApiV1PostControllerTest {
         createPost(trip, LocalDate.of(2026, 1, 1), "첫째 날");
 
         mvc.perform(get("/api/v1/trips/{tripId}/posts", trip.getId())
-                .param("ownerId", String.valueOf(owner.getId())))
+                .with(authentication(auth(owner))))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.length()").value(2))
@@ -114,7 +117,7 @@ class ApiV1PostControllerTest {
         Post post = createPost(trip, LocalDate.of(2026, 1, 1), "첫째 날");
 
         mvc.perform(get("/api/v1/posts/{postId}", post.getId())
-                .param("ownerId", String.valueOf(other.getId())))
+                .with(authentication(auth(other))))
             .andDo(print())
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -130,7 +133,7 @@ class ApiV1PostControllerTest {
 
         mvc.perform(patch("/api/v1/posts/{postId}", post.getId())
                 .with(csrf())
-                .param("ownerId", String.valueOf(owner.getId()))
+                .with(authentication(auth(owner)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -156,7 +159,7 @@ class ApiV1PostControllerTest {
 
         mvc.perform(delete("/api/v1/posts/{postId}", post.getId())
                 .with(csrf())
-                .param("ownerId", String.valueOf(other.getId())))
+                .with(authentication(auth(other))))
             .andDo(print())
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -197,5 +200,9 @@ class ApiV1PostControllerTest {
             title,
             "교토 여행 메모"
         ));
+    }
+
+    private UsernamePasswordAuthenticationToken auth(Member member) {
+        return new UsernamePasswordAuthenticationToken(member.getId(), null, List.of());
     }
 }

@@ -7,6 +7,7 @@ import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,10 +20,10 @@ public class ApiV1TripController {
 
     @PostMapping("/trips")
     public RsData<TripResponse> createTrip(
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal Long memberId,
         @RequestBody @Valid TripCreateRequest request
     ) {
-        TripResponse response = tripService.create(ownerId, request);
+        TripResponse response = tripService.create(memberId, request);
 
         return new RsData<>(
             "201-1",
@@ -33,12 +34,12 @@ public class ApiV1TripController {
 
     @GetMapping("/users/me/trips")
     public RsData<List<TripResponse>> getMyTrips(
-        @RequestParam Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
         return new RsData<>(
             "200-1",
             "내 여행기 목록 조회에 성공했습니다.",
-            tripService.findTripsByOwnerId(ownerId)
+            tripService.findTripsByOwnerId(memberId)
         );
     }
 
@@ -54,34 +55,34 @@ public class ApiV1TripController {
     @GetMapping("/trips/{tripId}")
     public RsData<TripResponse> getTrip(
         @PathVariable Long tripId,
-        @RequestParam(required = false) Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
         return new RsData<>(
             "200-1",
             "%d번 여행기 조회에 성공했습니다.".formatted(tripId),
-            tripService.findAccessibleTrip(tripId, ownerId)
+            tripService.findAccessibleTrip(tripId, memberId)
         );
     }
 
     @PatchMapping("/trips/{tripId}")
     public RsData<TripResponse> modifyTrip(
         @PathVariable Long tripId,
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal Long memberId,
         @RequestBody @Valid TripModifyRequest request
     ) {
         return new RsData<>(
             "200-1",
             "%d번 여행기가 수정되었습니다.".formatted(tripId),
-            tripService.modifyTrip(tripId, ownerId, request)
+            tripService.modifyTrip(tripId, memberId, request)
         );
     }
 
     @DeleteMapping("/trips/{tripId}")
     public RsData<Void> deleteTrip(
         @PathVariable Long tripId,
-        @RequestParam Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
-        tripService.deleteTrip(tripId, ownerId);
+        tripService.deleteTrip(tripId, memberId);
 
         return new RsData<>(
             "200-1",

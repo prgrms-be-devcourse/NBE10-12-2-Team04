@@ -3,6 +3,7 @@ package com.triptrace.global.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -40,6 +41,11 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/v3/api-docs/**"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/trips").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/trips/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/trips/*/posts").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/posts/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/feed/trips/**").permitAll()
                 .anyRequest().authenticated() // 그 외 전부 로그인 필요
             )
             .addFilterBefore(new JwtFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
