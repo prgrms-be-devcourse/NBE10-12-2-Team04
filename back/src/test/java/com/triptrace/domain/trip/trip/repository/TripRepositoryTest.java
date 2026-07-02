@@ -39,7 +39,6 @@ public class TripRepositoryTest {
             "member1@test.com",
             "member1",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -48,7 +47,6 @@ public class TripRepositoryTest {
             "member2@test.com",
             "member2",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -57,7 +55,6 @@ public class TripRepositoryTest {
             "member3@test.com",
             "member3",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -66,7 +63,6 @@ public class TripRepositoryTest {
             "member4@test.com",
             "member4",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -75,7 +71,6 @@ public class TripRepositoryTest {
             "member5@test.com",
             "member5",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -84,7 +79,6 @@ public class TripRepositoryTest {
             "member6@test.com",
             "member6",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -93,7 +87,6 @@ public class TripRepositoryTest {
             "member7@test.com",
             "member7",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -102,7 +95,6 @@ public class TripRepositoryTest {
             "member8@test.com",
             "member8",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -111,7 +103,6 @@ public class TripRepositoryTest {
             "member9@test.com",
             "member9",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -120,7 +111,6 @@ public class TripRepositoryTest {
             "member10@test.com",
             "member10",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -129,7 +119,6 @@ public class TripRepositoryTest {
             "owner1@test.com",
             "owner1",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -138,7 +127,6 @@ public class TripRepositoryTest {
             "owner2@test.com",
             "owner2",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -147,7 +135,6 @@ public class TripRepositoryTest {
             "owner3@test.com",
             "owner3",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -156,7 +143,6 @@ public class TripRepositoryTest {
             "owner4@test.com",
             "owner4",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -165,7 +151,6 @@ public class TripRepositoryTest {
             "owner5@test.com",
             "owner5",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -174,7 +159,6 @@ public class TripRepositoryTest {
             "owner6@test.com",
             "owner6",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -183,7 +167,6 @@ public class TripRepositoryTest {
             "owner7@test.com",
             "owner7",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -192,7 +175,6 @@ public class TripRepositoryTest {
             "owner8@test.com",
             "owner8",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -201,7 +183,6 @@ public class TripRepositoryTest {
             "owner9@test.com",
             "owner9",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -210,7 +191,6 @@ public class TripRepositoryTest {
             "owner10@test.com",
             "owner10",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
@@ -395,7 +375,6 @@ public class TripRepositoryTest {
             "owner11@test.com",
             "owner11",
             "password1234",
-            UUID.randomUUID().toString(),
             "imageUrl",
             MemberStatus.ACTIVE
         ));
