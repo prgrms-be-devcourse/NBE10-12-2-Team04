@@ -4,10 +4,10 @@ import com.triptrace.domain.trip.tripAuto.dto.TripAutoRecordResponse;
 import com.triptrace.domain.trip.tripAuto.service.TripAutoRecordService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -21,9 +21,9 @@ public class TripAutoRecordController {
     @PostMapping("/{tripId}/auto-records")
     public RsData<TripAutoRecordResponse> createAutoRecords(
         @PathVariable Long tripId,
-        @RequestParam Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
-        TripAutoRecordResponse response = tripAutoRecordService.createAutoRecords(tripId, ownerId);
+        TripAutoRecordResponse response = tripAutoRecordService.createAutoRecords(tripId, memberId);
 
         return new RsData<>(
             "201-1",

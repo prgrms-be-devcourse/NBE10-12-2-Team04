@@ -7,6 +7,7 @@ import com.triptrace.domain.post.post.service.PostService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,10 +21,10 @@ public class ApiV1PostController {
     @PostMapping("/trips/{tripId}/posts")
     public RsData<PostResponse> createPost(
         @PathVariable Long tripId,
-        @RequestParam Long ownerId, //임시 인증
+        @AuthenticationPrincipal Long memberId,
         @RequestBody @Valid PostCreateRequest request
     ) {
-        PostResponse response = postService.create(tripId, ownerId, request);
+        PostResponse response = postService.create(tripId, memberId, request);
 
         return new RsData<>(
             "201-1",
@@ -35,46 +36,46 @@ public class ApiV1PostController {
     @GetMapping("/trips/{tripId}/posts")
     public RsData<List<PostResponse>> getPosts(
         @PathVariable Long tripId,
-        @RequestParam(required = false) Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
         return new RsData<>(
             "200-1",
             "게시물 목록 조회에 성공했습니다.",
-            postService.findPostsByTripId(tripId, ownerId)
+            postService.findPostsByTripId(tripId, memberId)
         );
     }
 
     @GetMapping("/posts/{postId}")
     public RsData<PostResponse> getPost(
         @PathVariable Long postId,
-        @RequestParam(required = false) Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
         return new RsData<>(
             "200-1",
             "%d번 게시물 조회에 성공했습니다.".formatted(postId),
-            postService.findAccessiblePost(postId, ownerId)
+            postService.findAccessiblePost(postId, memberId)
         );
     }
 
     @PatchMapping("/posts/{postId}")
     public RsData<PostResponse> modifyPost(
         @PathVariable Long postId,
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal Long memberId,
         @RequestBody @Valid PostModifyRequest request
     ) {
         return new RsData<>(
             "200-1",
             "%d번 게시물이 수정되었습니다.".formatted(postId),
-            postService.modifyPost(postId, ownerId, request)
+            postService.modifyPost(postId, memberId, request)
         );
     }
 
     @DeleteMapping("/posts/{postId}")
     public RsData<Void> deletePost(
         @PathVariable Long postId,
-        @RequestParam Long ownerId
+        @AuthenticationPrincipal Long memberId
     ) {
-        postService.deletePost(postId, ownerId);
+        postService.deletePost(postId, memberId);
 
         return new RsData<>(
             "200-1",

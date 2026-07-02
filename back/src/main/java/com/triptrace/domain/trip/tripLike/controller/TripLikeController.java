@@ -4,6 +4,7 @@ import com.triptrace.domain.trip.tripLike.dto.TripLikeStatusResponse;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,7 +16,7 @@ public class TripLikeController {
     // 좋아요 추가
     @PostMapping("/{tripId}/likes")
     public RsData<Void> createLike(
-        @RequestParam Long memberId,
+        @AuthenticationPrincipal Long memberId,
         @PathVariable Long tripId) {
 
         tripLikeService.createLike(memberId, tripId);
@@ -29,7 +30,7 @@ public class TripLikeController {
     // 좋아요 취소
     @DeleteMapping("/{tripId}/likes")
     public RsData<Void> deleteLike(
-        @RequestParam Long memberId,
+        @AuthenticationPrincipal Long memberId,
         @PathVariable Long tripId) {
 
         tripLikeService.deleteLike(memberId, tripId);
@@ -43,7 +44,7 @@ public class TripLikeController {
     // 좋아요 여부 조회
     @GetMapping("/{tripId}/likes/me")
     public RsData<TripLikeStatusResponse> isLiked(
-        @RequestParam Long memberId,
+        @AuthenticationPrincipal Long memberId,
         @PathVariable Long tripId
     ) {
         boolean liked = tripLikeService.isLiked(memberId, tripId);

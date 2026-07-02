@@ -8,6 +8,7 @@ import com.triptrace.domain.marker.marker.service.MarkerService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,10 +24,11 @@ public class MarkerController {
     @PostMapping("/posts/{postId}/markers")
     public RsData<MarkerResponse> createMarker(
         @PathVariable Long postId,
+        @AuthenticationPrincipal Long memberId,
         @Valid @RequestBody MarkerCreateRequest request
     ) {
 
-        MarkerResponse response = markerService.createMarker(postId, request);
+        MarkerResponse response = markerService.createMarker(postId, memberId, request);
 
         return new RsData<>(
             "201-1",
@@ -65,7 +67,7 @@ public class MarkerController {
     @GetMapping("/posts/markers/{markerId}/place-candidates")
     public RsData<List<PlaceCandidateResponse>> getPlaceCandidates(
         @PathVariable Long markerId,
-        @RequestParam Long memberId
+        @AuthenticationPrincipal Long memberId
     ) {
 
         return new RsData<>(
@@ -79,13 +81,14 @@ public class MarkerController {
     @PatchMapping("/posts/markers/{markerId}")
     public RsData<MarkerResponse> modifyMarker (
         @PathVariable Long markerId,
+        @AuthenticationPrincipal Long memberId,
         @Valid @RequestBody MarkerModifyRequest request
     ) {
 
         return new RsData<>(
             "200-1",
             "마커가 수정되었습니다.",
-            markerService.modifyMarker(markerId, request)
+            markerService.modifyMarker(markerId, memberId, request)
         );
     }
 
@@ -93,7 +96,7 @@ public class MarkerController {
     @DeleteMapping("/posts/markers/{markerId}")
     public RsData<Void> deleteMarker (
         @PathVariable Long markerId,
-        @RequestBody Long memberId
+        @AuthenticationPrincipal Long memberId
     ) {
 
         markerService.deleteMarker(markerId, memberId);

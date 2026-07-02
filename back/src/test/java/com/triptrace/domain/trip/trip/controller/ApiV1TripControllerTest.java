@@ -11,15 +11,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -48,7 +51,7 @@ class ApiV1TripControllerTest {
 
         mvc.perform(post("/api/v1/trips")
                 .with(csrf())
-                .param("ownerId", String.valueOf(member.getId()))
+                .with(authentication(auth(member)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -77,7 +80,7 @@ class ApiV1TripControllerTest {
         createTrip(other, "다른 사람 여행기");
 
         mvc.perform(get("/api/v1/users/me/trips")
-                .param("ownerId", String.valueOf(owner.getId())))
+                .with(authentication(auth(owner))))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.length()").value(1))
@@ -122,7 +125,7 @@ class ApiV1TripControllerTest {
         Trip trip = createTrip(owner, "비공개 여행기", false);
 
         mvc.perform(get("/api/v1/trips/{tripId}", trip.getId())
-                .param("ownerId", String.valueOf(owner.getId())))
+                .with(authentication(auth(owner))))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.id").value(trip.getId()))
@@ -138,7 +141,7 @@ class ApiV1TripControllerTest {
         Trip trip = createTrip(owner, "비공개 여행기", false);
 
         mvc.perform(get("/api/v1/trips/{tripId}", trip.getId())
-                .param("ownerId", String.valueOf(other.getId())))
+                .with(authentication(auth(other))))
             .andDo(print())
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -153,7 +156,7 @@ class ApiV1TripControllerTest {
 
         mvc.perform(patch("/api/v1/trips/{tripId}", trip.getId())
                 .with(csrf())
-                .param("ownerId", String.valueOf(owner.getId()))
+                .with(authentication(auth(owner)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -181,7 +184,7 @@ class ApiV1TripControllerTest {
 
         mvc.perform(delete("/api/v1/trips/{tripId}", trip.getId())
                 .with(csrf())
-                .param("ownerId", String.valueOf(other.getId())))
+                .with(authentication(auth(other))))
             .andDo(print())
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -213,5 +216,9 @@ class ApiV1TripControllerTest {
             LocalDateTime.of(2026, 1, 5, 0, 0),
             visibility
         ));
+    }
+
+    private UsernamePasswordAuthenticationToken auth(Member member) {
+        return new UsernamePasswordAuthenticationToken(member.getId(), null, List.of());
     }
 }
