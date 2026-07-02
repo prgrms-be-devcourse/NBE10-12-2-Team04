@@ -4,6 +4,7 @@ import com.triptrace.domain.image.image.entity.Image;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ImageRepository extends JpaRepository<Image, Long> {
 
@@ -12,4 +13,6 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
     List<Image> findByPostId(Long postId);
 
     List<Image> findByOwnerId(Long ownerId);
+
+    Optional<Image> findByOriginalFileUrl(String originalFileUrl);
 }

@@ -30,8 +30,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -129,11 +130,22 @@ public class ImageProcessor {
             } else log.warn("Exif directory is null");
 
             if (subIFDDirectory != null) {
-                Date date = subIFDDirectory.getDateOriginal();
-                String timeZone = subIFDDirectory.getDescription(ExifSubIFDDirectory.TAG_TIME_ZONE_ORIGINAL);
-                log.debug("date: {}, timeZone: {}", date, timeZone);
-                imageInfo.setCapturedAt(date);
-                imageInfo.setTimeZone(timeZone);
+                    String dataTimeString = subIFDDirectory.getString(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
+                    String timeZone = subIFDDirectory.getDescription(ExifSubIFDDirectory.TAG_TIME_ZONE_ORIGINAL);
+                    LocalDateTime dateTime = null;
+                try {
+                    if (dataTimeString != null) {
+                        dateTime = LocalDateTime.parse(dataTimeString, DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss"));
+                    }
+                    log.debug("date: {}, timeZone: {}", dateTime, timeZone);
+                    imageInfo.setCapturedAt(dateTime);
+                    imageInfo.setTimeZone(timeZone);
+                }
+                catch (Exception e) {
+                    log.warn("촬영일시 형식을 파싱할 수 없습니다.: {}", dataTimeString);
+                    imageInfo.setCapturedAt(null);
+                    imageInfo.setTimeZone(null);
+                }
             } else log.warn("SubIFD directory is null");
         }
         catch(MetadataException | ImageProcessingException | ImageProcessException | IOException e){
