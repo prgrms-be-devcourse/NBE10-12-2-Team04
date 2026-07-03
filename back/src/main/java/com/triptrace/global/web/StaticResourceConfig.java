@@ -1,8 +1,6 @@
 package com.triptrace.global.web;
 
 import com.triptrace.domain.image.image.module.storage.ImageStorageProperties;
-import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
