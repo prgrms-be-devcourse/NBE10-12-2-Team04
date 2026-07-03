@@ -45,54 +45,65 @@ public class ImageUploadFacade {
 
     private ImageInfo extract(MultipartFile imageFile) {
         ImageInfo imageInfo = new ImageInfo();
-        try{//extract
+        try{
             byte[] bytes = imageFile.getBytes();
             imageInfo = imageMetadataExtractor.extract(bytes);
         }
-        catch(IOException | ServiceException | ImageProcessException e){
-            log.warn(ImageExceptionCatalog.invalid("추출 실패").toString());
+        catch(IOException | ImageProcessException e){
+            //추출단계는 권장 영역이므로 예외를 올리지 않고 로그만 기록
             log.warn(e.getMessage());
         }
         return imageInfo;
     }
-    ImageUploadResponse upload(Long ownerId, Long tripId, MultipartFile imageFile) {
-        Member owner = memberService.findById(ownerId);
-        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
+
+    ImageUploadResponse upload(Member owner, Trip trip, MultipartFile imageFile) {
+        //예외 반환 안 함
+        //uploadImages의 부속 메서드 10개 중 2개 실패한다더라도 8개는 저장해야함
         String fileName = imageFile.getOriginalFilename();
         SavedFileInfo savedFileInfo;
         ImageFileRequest imageFileRequest;
-
+        //extract
         ImageInfo imageInfo = extract(imageFile);
-        try { //image file save
+        try {
             byte[] bytes = imageFile.getBytes();
             savedFileInfo = imageFileStorage.saveImageWithThumbnail(bytes, imageInfo.getOrientation());
             if(savedFileInfo == null){
-                throw ImageExceptionCatalog.invalid("저장 오류");
+                throw ImageExceptionCatalog.invalid("이미지 파일 저장에 실패했습니다.");
             }
             imageFileRequest = ImageFactory.createImageFileRequest(savedFileInfo);
         }
-        catch(IOException | ServiceException | ImageProcessException e){
-            //저장 실패시 응답 반환
-            log.warn(ImageExceptionCatalog.invalid().toString());
+        catch(IOException | ImageProcessException e){
+            //저장 실패시 응답 반환 - 로그만
             log.warn(e.getMessage());
             return ImageFactory.createImageUploadResponse(fileName, null);
         }
         //insert db
         Image image = ImageFactory.createImage(owner, trip, imageInfo, imageFileRequest);
-        ImageServiceResponse imageServiceResponse = imageService.create(image);
+        ImageServiceResponse imageServiceResponse = null;
+        try {
+            imageServiceResponse = imageService.create(image);
+        }catch(ImageProcessException e){
+            //DB 저장 실패
+            imageFileStorage.cleanUp(savedFileInfo);
+            log.warn(e.getMessage());
+        }
         return ImageFactory.createImageUploadResponse(fileName, imageServiceResponse);
     }
     public List<ImageUploadResponse> uploadImages(Long ownerId,
                                                   Long tripId,
                                                   @NotEmpty MultipartFile[] images){
+        //다수의 파일 업로드
+        Member owner = memberService.findById(ownerId);
+        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         List<ImageUploadResponse> list = new ArrayList<>();
         for (MultipartFile image : images) {
-            list.add(upload(ownerId, tripId, image));
+            list.add(upload(owner, trip, image));
         }
         return list;
     }
 
     public ImageUploadResponse uploadImage(Long ownerId, Long tripId, Long postId, MultipartFile imageFile) {
+        //Post가 있는 경우 업로드
         Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         Post post = postService.getPost(trip, postId);
@@ -121,13 +132,17 @@ public class ImageUploadFacade {
     public String uploadProfile(
         @NotEmpty Long ownerId,
         @NotNull MultipartFile imageFile) {
+        //애매함
         Member owner = memberService.findById(ownerId);
-        String url;
+        String url = null;
         try{
             url = imageFileStorage.saveProfileImage(imageFile.getBytes());
             memberService.modifyProfileImageUrl(ownerId, url);
-        }catch (IOException | ServiceException e){
+        }catch (IOException e){
           throw ImageExceptionCatalog.invalid();
+        }catch(RuntimeException e){
+            if(url != null) imageFileStorage.deleteImage(url);
+            throw e;
         }
         if(url == null){
             throw ImageExceptionCatalog.invalid("프로필 이미지 저장에 실패했습니다.");

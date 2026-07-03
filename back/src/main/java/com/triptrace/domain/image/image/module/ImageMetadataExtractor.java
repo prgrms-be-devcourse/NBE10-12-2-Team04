@@ -85,6 +85,7 @@ public class ImageMetadataExtractor {
             }
         }
         catch(ImageProcessingException | ImageProcessException | IOException e){
+            log.warn(e.getMessage());
             throw new ImageProcessException(FILE_EXTRACT_ERROR,"메타데이터를 추출할 수 없습니다.", e);
         }
         return imageInfo;
@@ -104,7 +105,7 @@ public class ImageMetadataExtractor {
                 imageDateTime = new ImageDateTime(dateTime, timeZone);
             }
             catch (Exception e) {
-                log.warn("촬영일시 형식을 파싱할 수 없습니다.: {}", dataTimeString);
+                log.warn("촬영일시 형식을 파싱할 수 없습니다.: {}", e.getMessage());
                 return null;
             }
         } else log.warn("SubIFD directory is null");
@@ -126,6 +127,7 @@ public class ImageMetadataExtractor {
                 imageExifIF = new ImageExifIF(exifOrientation, model, make);
             } else log.warn("Exif directory is null");
         }catch(MetadataException e){
+            log.warn("회전값, 기기 정보를 불러올 수 없습니다.: {}", e.getMessage());
             return null;
         }
         return imageExifIF;
@@ -141,6 +143,7 @@ public class ImageMetadataExtractor {
                 imageWidthHeight = new ImageWidthHeight(width, height);
             } else log.warn("Jpeg directory is null");
         }catch(MetadataException e) {
+            log.warn("이미지의 크기 정보를 불러올 수 없습니다.: {}", e.getMessage());
             return null;
         }
         return imageWidthHeight;

@@ -13,8 +13,6 @@ import com.triptrace.domain.trip.trip.entity.Trip;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.util.List;
 
 public class ImageFactory {
     public static Image createImage(Member owner, Trip trip, ImageInfo imageInfo, ImageFileRequest imageFileRequest){
