@@ -49,14 +49,15 @@ public class ImageFactory {
             image.getUploadStatus()
         );
     }
-    public static ImageFileRequest createImageFileRequest(String imageFileUrl,String thumbnailImageFileUrl, Long fileSize) {
-        return new ImageFileRequest(imageFileUrl, thumbnailImageFileUrl, fileSize);
+    public static ImageFileRequest createImageFileRequest(String imageFileUrl,String thumbnailImageFileUrl, Long fileSize, String mimeType) {
+        return new ImageFileRequest(imageFileUrl, thumbnailImageFileUrl, fileSize, mimeType);
     }
     public static ImageFileRequest createImageFileRequest(SavedFileInfo savedFileInfo) {
         return createImageFileRequest(
             savedFileInfo.servingUrl(),
             savedFileInfo.thumbnailUrl(),
-            savedFileInfo.size());
+            savedFileInfo.size(),
+            savedFileInfo.mimeType());
     }
     public static ImageUploadResponse createImageUploadResponse(String fileName, ImageServiceResponse imageServiceResponse) {
         if(imageServiceResponse == null){
@@ -75,8 +76,8 @@ public class ImageFactory {
     public static Image createImage(Member owner, Trip trip, Post post, ImageInfo imageInfo, ImageFileRequest imageFileRequest) {
         UploadStatus uploadStatus = UploadStatus.STORED;
         if(imageFileRequest == null ||
-            imageFileRequest.getImageFileUrl() == null ||
-            imageFileRequest.getImageFileUrl().isBlank()){
+            imageFileRequest.imageFileUrl() == null ||
+            imageFileRequest.imageFileUrl().isBlank()){
             uploadStatus = UploadStatus.FAILED;
         }
         String device = null;
@@ -93,10 +94,10 @@ public class ImageFactory {
             owner,
             trip,
             post,
-            imageFileRequest.getImageFileUrl(),
-            imageFileRequest.getThumbnailImageFileUrl(),
-            imageFileRequest.getFileSize(),
-            imageInfo.getMimeType(),
+            imageFileRequest.imageFileUrl(),
+            imageFileRequest.thumbnailImageFileUrl(),
+            imageFileRequest.fileSize(),
+            imageFileRequest.mimeType(),
             latitude,
             longitude,
             imageInfo.getCapturedAt(),

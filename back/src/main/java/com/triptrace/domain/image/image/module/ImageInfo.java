@@ -18,9 +18,8 @@ public class ImageInfo{
     private String model;
     private String maker;
     private ExifOrientation orientation;// 1 정상, 3 180도, 6 90도 시계, 8 270도 시계
-    private String mimeType;
     private Long fileSize;
-    ImageInfo(){
+    public ImageInfo(){
         width = height = 0;
         longitude = null;
         latitude = null;
@@ -28,7 +27,6 @@ public class ImageInfo{
         model = null;
         maker = null;
         orientation = ExifOrientation.NORMAL;
-        mimeType = null;
         fileSize = 0L;
         capturedAt = null;
     }
@@ -45,7 +43,6 @@ public class ImageInfo{
             .append("\n model: " + model)
             .append("\n maker: " + maker)
             .append("\n orientation: " + orientation)
-            .append("\n mimeType: " + mimeType)
             .append("\n fileSize: " + fileSize);
         sb.append("\n------------------splitter------------------");
         return sb.toString();

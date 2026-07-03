@@ -24,13 +24,18 @@ public class ImageServiceImpl implements ImageService {
         image = imageRepository.save(image);
         return ImageFactory.createImageServiceResponse(image);
     }
-
+    @Transactional
+    public ImageServiceResponse delete(Image image) {
+        //외부 접근 제외
+        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
+        imageRepository.delete(image);
+        return response;
+    }
     @Transactional
     public ImageServiceResponse modifyPost(Member owner, Trip trip, Post post, Long imageId) {
         Image image = getById(imageId);
         if( ! validateOwner(owner, image) ||
-            ! validateTrip(trip, image) ||
-            ! validatePost(post, image)) {
+            ! validateTrip(trip, image)) {
             throw ImageExceptionCatalog.forbidden();
         }
         image.modifyPost(post);
@@ -40,39 +45,25 @@ public class ImageServiceImpl implements ImageService {
     @Transactional
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, Long id) {
         Image image = getById(id);
-        if( ! validateOwner(owner,image) ||
-            ! validateTrip(trip,image)  ||
-            ! validatePost(post,image)){
-            throw ImageExceptionCatalog.forbidden();
-        }
-        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
-        imageRepository.delete(image);
-        return response;
+        validate(owner, trip, post, image);
+        return delete(image);
     }
 
     @Transactional
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, String imageUrl) {
         Image image = getByUrl(imageUrl);
-        if( ! validateOwner(owner,image)||
-            ! validateTrip(trip,image)  ||
-            ! validatePost(post,image)){
-            throw ImageExceptionCatalog.forbidden();
-        }
-        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
-        imageRepository.delete(image);
-        return response;
+        validate(owner, trip, post, image);
+        return delete(image);
     }
-
-
     @Transactional(readOnly = true)
-    Image getById(Long id) {
+    public Image getById(Long id) {
         Image image = imageRepository.findById(id).orElseThrow(
             ImageExceptionCatalog::notFound);
         return image;
     }
 
     @Transactional(readOnly = true)
-    Image getByUrl(String originalFileUrl) {
+    public Image getByUrl(String originalFileUrl) {
         Image image = imageRepository.findByOriginalFileUrl(originalFileUrl)
             .orElseThrow(ImageExceptionCatalog::notFound);
         return image;
@@ -80,16 +71,14 @@ public class ImageServiceImpl implements ImageService {
 
     @Transactional(readOnly = true)
     public ImageServiceResponse findById(Long id){
-        Image image = imageRepository.findById(id)
-            .orElseThrow(ImageExceptionCatalog::notFound);
+        Image image = getById(id);
         return ImageFactory.createImageServiceResponse(image);
     }
 
     @Override
     @Transactional(readOnly = true)
     public ImageServiceResponse findByUrl(String imageUrl) {
-        Image image = imageRepository.findByOriginalFileUrl(imageUrl)
-            .orElseThrow(ImageExceptionCatalog::notFound);
+        Image image = getByUrl(imageUrl);
         return ImageFactory.createImageServiceResponse(image);
     }
 
@@ -107,6 +96,13 @@ public class ImageServiceImpl implements ImageService {
     }
 
 
+    private void validate(Member owner, Trip trip, Post post, Image image) {
+        if( ! validateOwner(owner,image)||
+            ! validateTrip(trip,image) ||
+            ! validatePost(post,image)){
+            throw ImageExceptionCatalog.forbidden();
+        }
+    }
 
     private boolean validateOwner(Member owner, Image image){
         if(owner.getId().equals(image.getOwner().getId())){
@@ -122,9 +118,12 @@ public class ImageServiceImpl implements ImageService {
         return false;
     }
     private boolean validatePost(Post post, Image image){
-        if(post.getId().equals(image.getPost().getId())){
+        if(post == null){
             return true;
         }
-        return false;
+        if(image.getPost() == null){
+            return false;
+        }
+        return post.getId().equals(image.getPost().getId());
     }
 }

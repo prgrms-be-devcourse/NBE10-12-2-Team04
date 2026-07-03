@@ -96,7 +96,8 @@ public class ImageFileStorage {
         return new SavedFileInfo(
             servingImagesPath + "/" + origin.name(),
             thumbnailImagesPath + "/"+ thumbnail.name(),
-            origin.size());
+            origin.size(),
+            "image/"+jpegExt);
     }
     //
     public boolean deleteImage(String imagePath) throws ImageProcessException {

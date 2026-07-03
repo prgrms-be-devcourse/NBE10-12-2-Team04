@@ -13,6 +13,10 @@ public interface ImageService {
 
     ImageServiceResponse findById(Long id);
     ImageServiceResponse findByUrl(String imageUrl);
+
+    Image getById(Long id);
+    Image getByUrl(String imageUrl);
+
     List<ImageServiceResponse> findByTripId(Trip trip);
     List<ImageServiceResponse> findByPostId(Post post);
 

@@ -22,24 +22,24 @@ public class ApiV1ImageController {
 
     @PostMapping("/trips/{tripId}/images")
     public RsData<List<ImageUploadResponse>> upload(
-        @AuthenticationPrincipal (expression = "member.email") String email,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @RequestParam MultipartFile[] images
     ){
         return new RsData<>(
             "200-1",
             "업로드 되었습니다.",
-            imageProcessFacade.uploadImages(email,tripId, images)
+            imageProcessFacade.uploadImages(ownerId,tripId, images)
         );
     }
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images/{imageId}")
     public RsData<?> delete(
-        @AuthenticationPrincipal (expression = "member.email") String email,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @PathVariable Long imageId
     ){
-        imageDeleteFacade.deleteById(email,tripId,postId, imageId);
+        imageDeleteFacade.deleteById(ownerId,tripId,postId, imageId);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",
@@ -49,12 +49,12 @@ public class ApiV1ImageController {
 
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images")
     public RsData<?> delete(
-        @AuthenticationPrincipal (expression = "member.email") String email,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @RequestParam String imageUrl
     ){
-        imageDeleteFacade.deleteByUrl(email,tripId, postId, imageUrl);
+        imageDeleteFacade.deleteByUrl(ownerId,tripId, postId, imageUrl);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",
@@ -63,7 +63,7 @@ public class ApiV1ImageController {
     }
     @PatchMapping("/trips/{tripId}/images")
     public RsData<?> modify(
-        @AuthenticationPrincipal (expression = "member.email") String email,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @RequestParam Long postId,
         @RequestParam Long imageId
@@ -72,8 +72,10 @@ public class ApiV1ImageController {
         return new RsData<>(
             "200-1",
             "수정 되었습니다.",
-            imageModifyFacade.modifyByEmail(email,tripId,postId,imageId)
+            imageModifyFacade.modifyByEmail(ownerId,tripId,postId,imageId)
         );
     }
+
+
 
 }

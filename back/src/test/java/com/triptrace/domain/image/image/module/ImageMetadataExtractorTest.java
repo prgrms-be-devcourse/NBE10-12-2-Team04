@@ -38,7 +38,6 @@ public class ImageMetadataExtractorTest {
         assertThat(info.getFileSize()).isGreaterThan(0);
         assertThat(info.getModel()).isNotNull();
         assertThat(info.getMaker()).isNotNull();
-        assertThat(info.getMimeType()).isNotBlank();
         assertThat(info.getTimeZone()).isNotNull();
         assertThat(info.getLatitude()).isNotNull();
         assertThat(info.getLongitude()).isNotNull();
@@ -51,14 +50,6 @@ public class ImageMetadataExtractorTest {
         ImageInfo info = imageMetadataExtractor.extract(imageBytes);
 
         assertThat(info.getFileSize()).isEqualTo((long) imageBytes.length);
-    }
-
-    @Test
-    @DisplayName("mimeType은 image/jpeg 형식으로 채워진다")
-    void test03() {
-        ImageInfo info = imageMetadataExtractor.extract(imageBytes);
-
-        assertThat(info.getMimeType()).isEqualTo("image/jpeg");
     }
 
     @Test

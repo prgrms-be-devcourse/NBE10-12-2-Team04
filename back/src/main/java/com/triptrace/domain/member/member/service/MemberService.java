@@ -48,8 +48,8 @@ public class MemberService {
     }
 
     @Transactional
-    public void modifyProfileImageUrl(@NotEmpty String email, String profileImageUrl) {
-        Member member = findByEmail(email);
+    public void modifyProfileImageUrl(Long id, String profileImageUrl) {
+        Member member = findById(id);
         member.modifyProfile(profileImageUrl);
         memberRepository.save(member);
     }

@@ -128,7 +128,7 @@ public class ImageServiceFacadeTest {
     @DisplayName("이미지를 업로드하면 저장 상태로 조회된다")
     void test01() throws IOException {
         MultipartFile[] files = new MultipartFile[]{toMultipartFile()};
-        List<ImageUploadResponse> res = imageUploadFacade.uploadImages(owner.getEmail(), trip.getId(), files);
+        List<ImageUploadResponse> res = imageUploadFacade.uploadImages(owner.getId(), trip.getId(), files);
 
         assertThat(res.size()).isEqualTo(1);
         assertThat(res.getFirst().uploadStatus()).isEqualTo(UploadStatus.STORED);
@@ -143,10 +143,10 @@ public class ImageServiceFacadeTest {
     @DisplayName("이미지를 삭제하면 더 이상 조회되지 않는다")
     void test02() throws IOException {
         ImageUploadResponse uploaded = imageUploadFacade.uploadImage(
-            owner.getEmail(), trip.getId(), post.getId(), toMultipartFile()
+            owner.getId(), trip.getId(), post.getId(), toMultipartFile()
         );
 
-        imageDeleteFacade.deleteById(owner.getEmail(), trip.getId(), post.getId(), uploaded.id());
+        imageDeleteFacade.deleteById(owner.getId(), trip.getId(), post.getId(), uploaded.id());
 
         assertThatThrownBy(() -> imageService.findById(uploaded.id()))
             .isInstanceOf(ServiceException.class);
@@ -155,7 +155,7 @@ public class ImageServiceFacadeTest {
     @Test
     @DisplayName("프로필 이미지를 업로드하면 회원의 프로필 URL이 갱신된다")
     void test03() throws IOException {
-        String url = imageUploadFacade.uploadProfile(owner.getEmail(), toMultipartFile());
+        String url = imageUploadFacade.uploadProfile(owner.getId(), toMultipartFile());
 
         assertThat(url).isNotBlank();
         assertThat(url).startsWith("/profile/");

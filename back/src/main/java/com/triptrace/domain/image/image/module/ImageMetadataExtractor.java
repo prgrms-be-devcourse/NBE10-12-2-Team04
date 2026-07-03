@@ -58,7 +58,6 @@ public class ImageMetadataExtractor {
             Metadata metadata = ImageMetadataReader.readMetadata(fis);
             showAllInfoByMetaData(metadata);
             log.debug("file type: {}", fileType);
-            imageInfo.setMimeType("image/" + fileType.toString().toLowerCase());
 
             ImageDateTime imageDateTime = getImageDateTime(metadata);
             if(imageDateTime != null) {

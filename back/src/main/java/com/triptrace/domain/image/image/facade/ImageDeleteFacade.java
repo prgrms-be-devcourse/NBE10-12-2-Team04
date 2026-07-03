@@ -23,20 +23,20 @@ public class ImageDeleteFacade {
     private final ImageFileStorage imageFileStorage;
 
     @Transactional
-    public void deleteByUrl(String email, Long tripId, Long postId, String imageUrl) {
-        Member owner = memberService.findByEmail(email);
+    public void deleteByUrl(Long ownerId, Long tripId, Long postId, String imageUrl) {
+        Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
-        Post post = postService.getPost(postId);
+        Post post = postService.getPost(trip,postId);
         ImageServiceResponse imageServiceResponse = imageService.delete(owner, trip, post, imageUrl);
         imageFileStorage.deleteImage(imageServiceResponse.originalFileUrl());
         imageFileStorage.deleteImage(imageServiceResponse.thumbnailUrl());
     }
 
     @Transactional
-    public void deleteById(String email, Long tripId, Long postId, Long imageId) {
-        Member owner = memberService.findByEmail(email);
+    public void deleteById(Long ownerId, Long tripId, Long postId, Long imageId) {
+        Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
-        Post post = postService.getPost(postId);
+        Post post = postService.getPost(trip,postId);
         ImageServiceResponse imageServiceResponse = imageService.delete(owner, trip, post, imageId);
         imageFileStorage.deleteImage(imageServiceResponse.originalFileUrl());
         imageFileStorage.deleteImage(imageServiceResponse.thumbnailUrl());

@@ -44,7 +44,7 @@ public class ImageUploadFacade {
     private final PostService postService;
 
     private ImageInfo extract(MultipartFile imageFile) {
-        ImageInfo imageInfo = null;
+        ImageInfo imageInfo = new ImageInfo();
         try{//extract
             byte[] bytes = imageFile.getBytes();
             imageInfo = imageMetadataExtractor.extract(bytes);
@@ -55,7 +55,9 @@ public class ImageUploadFacade {
         }
         return imageInfo;
     }
-    ImageUploadResponse upload(String email, Long tripId, MultipartFile imageFile) {
+    ImageUploadResponse upload(Long ownerId, Long tripId, MultipartFile imageFile) {
+        Member owner = memberService.findById(ownerId);
+        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         String fileName = imageFile.getOriginalFilename();
         SavedFileInfo savedFileInfo;
         ImageFileRequest imageFileRequest;
@@ -75,15 +77,12 @@ public class ImageUploadFacade {
             log.warn(e.getMessage());
             return ImageFactory.createImageUploadResponse(fileName, null);
         }
-
         //insert db
-        Member owner = memberService.findByEmail(email);
-        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         Image image = ImageFactory.createImage(owner, trip, imageInfo, imageFileRequest);
         ImageServiceResponse imageServiceResponse = imageService.create(image);
         return ImageFactory.createImageUploadResponse(fileName, imageServiceResponse);
     }
-    public List<ImageUploadResponse> uploadImages(String ownerId,
+    public List<ImageUploadResponse> uploadImages(Long ownerId,
                                                   Long tripId,
                                                   @NotEmpty MultipartFile[] images){
         List<ImageUploadResponse> list = new ArrayList<>();
@@ -93,10 +92,10 @@ public class ImageUploadFacade {
         return list;
     }
 
-    public ImageUploadResponse uploadImage(String email, Long tripId, Long postId, MultipartFile imageFile) {
-        Member owner = memberService.findByEmail(email);
+    public ImageUploadResponse uploadImage(Long ownerId, Long tripId, Long postId, MultipartFile imageFile) {
+        Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
-        Post post = postService.getPost(postId);
+        Post post = postService.getPost(trip, postId);
         ImageInfo imageInfo = extract(imageFile);
         SavedFileInfo savedFileInfo;
         try {
@@ -113,13 +112,13 @@ public class ImageUploadFacade {
     }
 
     public String uploadProfile(
-        @NotEmpty String email,
+        @NotEmpty Long ownerId,
         @NotNull MultipartFile imageFile) {
-        Member owner = memberService.findByEmail(email);
+        Member owner = memberService.findById(ownerId);
         String url;
         try{
             url = imageFileStorage.saveProfileImage(imageFile.getBytes());
-            memberService.modifyProfileImageUrl(email, url);
+            memberService.modifyProfileImageUrl(ownerId, url);
         }catch (IOException | ServiceException e){
           throw ImageExceptionCatalog.invalid();
         }

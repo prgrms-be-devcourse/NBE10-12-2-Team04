@@ -23,10 +23,10 @@ public class ImageModifyFacade {
 
 
     @Transactional
-    public ImageServiceResponse modifyByEmail(String email, Long tripId, Long postId, Long imageId) {
-        Member owner = memberService.findByEmail(email);
+    public ImageServiceResponse modifyByEmail(Long ownerId, Long tripId, Long postId, Long imageId) {
+        Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
-        Post post = postService.getPost(postId);
+        Post post = postService.getPost(trip,postId);
         if( ! post.getTrip().getId().equals(trip.getId())) {
             throw ImageExceptionCatalog.invalid();
         }
