@@ -108,7 +108,14 @@ public class ImageUploadFacade {
             throw ImageExceptionCatalog.invalid();
         }
         Image image = ImageFactory.createImage(owner, trip, post, imageInfo, ImageFactory.createImageFileRequest(savedFileInfo));
-        return ImageFactory.createImageUploadResponse(imageFile.getName(),imageService.create(image));
+        ImageServiceResponse imageServiceResponse = null;
+        try {
+            imageServiceResponse = imageService.create(image);
+        }catch (RuntimeException e){
+            imageFileStorage.cleanUp(savedFileInfo);
+            throw e;
+        }
+        return ImageFactory.createImageUploadResponse(imageFile.getName(),imageServiceResponse);
     }
 
     public String uploadProfile(

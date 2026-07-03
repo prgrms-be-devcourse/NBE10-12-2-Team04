@@ -92,14 +92,21 @@ public class ImageFileStorage {
         BufferedImage bufferedImage = getBufferedImage(image);
         bufferedImage = rotate(bufferedImage, orientation);
         StoredFile origin = saveImage(bufferedImage, uploadDir + servingImagesPath, generateFileName(jpegExt), false);
-        StoredFile thumbnail = saveImage(bufferedImage, uploadDir + thumbnailImagesPath, generateFileName(jpegExt), true);
+        StoredFile thumbnail;
+        try {
+            thumbnail = saveImage(bufferedImage, uploadDir + thumbnailImagesPath, generateFileName(jpegExt), true);
+        }
+        catch (ImageProcessException e) {
+            deleteImage(servingImagesPath + "/" + origin.name());
+            throw e;
+        }
         return new SavedFileInfo(
             servingImagesPath + "/" + origin.name(),
             thumbnailImagesPath + "/"+ thumbnail.name(),
             origin.size(),
             "image/"+jpegExt);
     }
-    //
+
     public boolean deleteImage(String imagePath) throws ImageProcessException {
         try {
             fileStorage.delete(uploadDir + imagePath);
@@ -187,5 +194,22 @@ public class ImageFileStorage {
     private String generateFileName(String fileExt){
         String newFileName = UUID.randomUUID().toString() + "." + fileExt;
         return newFileName;
+    }
+
+    public void cleanUp(SavedFileInfo savedFileInfo) {
+        String originFile = savedFileInfo.servingUrl();
+        String thumbnailFile = savedFileInfo.thumbnailUrl();
+        try {
+            deleteImage(originFile);
+        }
+        catch(ImageProcessException e){
+            throw new ImageProcessException(IMAGE_PROCESSING_DELETE_ERROR,"보상 트랜잭션 실패");
+        }
+        try {
+            deleteImage(thumbnailFile);
+        }
+        catch(ImageProcessException e){
+            throw new ImageProcessException(IMAGE_PROCESSING_DELETE_ERROR,"보상 트랜잭션 실패");
+        }
     }
 }

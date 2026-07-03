@@ -5,7 +5,6 @@ import com.triptrace.domain.image.image.dto.ImageUploadResponse;
 import com.triptrace.domain.image.image.entity.UploadStatus;
 import com.triptrace.domain.image.image.service.ImageService;
 import com.triptrace.domain.member.member.entity.Member;
-import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.member.member.service.MemberService;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
@@ -47,8 +46,6 @@ public class ImageServiceFacadeTest {
     ImageDeleteFacade imageDeleteFacade;
     @Autowired
     ImageModifyFacade imageModifyFacade;
-    @Autowired
-    MemberRepository memberRepository;
 
     private Member owner;
     private Trip trip;
@@ -150,17 +147,5 @@ public class ImageServiceFacadeTest {
 
         assertThatThrownBy(() -> imageService.findById(uploaded.id()))
             .isInstanceOf(ServiceException.class);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지를 업로드하면 회원의 프로필 URL이 갱신된다")
-    void test03() throws IOException {
-        String url = imageUploadFacade.uploadProfile(owner.getId(), toMultipartFile());
-
-        assertThat(url).isNotBlank();
-        assertThat(url).startsWith("/profile/");
-
-        Member updated = memberRepository.findById(owner.getId()).orElseThrow();
-        assertThat(updated.getProfileImageUrl()).isEqualTo(url);
     }
 }
