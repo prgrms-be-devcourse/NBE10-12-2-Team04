@@ -1,9 +1,6 @@
 package com.triptrace.domain.image.image.module.exception;
 
-import com.triptrace.global.rsData.RsData;
-
 public class ImageProcessException extends RuntimeException {
-    //TODO: GLOBAL EXCEPTION 에 등록해야함
     private final String resultCode;
     private final String msg;
     public ImageProcessException(String resultCode, String message) {
@@ -16,8 +13,11 @@ public class ImageProcessException extends RuntimeException {
         this.resultCode = resultCode;
         this.msg = message;
     }
+    public String getResultCode() {
+        return resultCode;
+    }
 
-    public RsData<Void> getRsData() {
-        return new RsData<>(resultCode, msg,null);
+    public String getMsg() {
+        return msg;
     }
 }

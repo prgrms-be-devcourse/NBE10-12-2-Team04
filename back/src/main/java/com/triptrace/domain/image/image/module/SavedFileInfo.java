@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 //수정 못해야함
 public record SavedFileInfo (
-    @NotNull String path,
-    long size){
+    @NotNull String servingUrl,
+    @NotNull String thumbnailUrl,
+    Long size){
 }

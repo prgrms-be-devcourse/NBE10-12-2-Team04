@@ -1,9 +1,16 @@
 spring:
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 100MB
+      max-file-size: ${IMAGE_FILE_SIZE}
+      max-request-size: ${MAX_IMAGE_FILES_SIZE}
 custom:
-  servingImage: src/test/resources/images/serving
-  thumbnailImage: src/test/resources/images/thumbnail
-  profileImage: src/test/resources/images/profile
+  ext:
+    jpg: jpeg
+  upload:
+    path: ${IMAGE_UPLOAD}
+    serving: ${SERVING_UPLOAD}
+    thumbnail: ${THUMBNAIL_UPLOAD}
+    profile: ${PROFILE_UPLOAD}
+  thumbnail:
+    width: 1024
+    height: 1024
