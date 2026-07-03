@@ -23,7 +23,7 @@ public class ImageModifyFacade {
 
 
     @Transactional
-    public ImageServiceResponse modifyByEmail(Long ownerId, Long tripId, Long postId, Long imageId) {
+    public ImageServiceResponse modifyById(Long ownerId, Long tripId, Long postId, Long imageId) {
         Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         Post post = postService.getPost(trip,postId);
