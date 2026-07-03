@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapPin, Home, Compass, Bookmark, Heart, User, Settings } from 'lucide-react';
+import { MapPin, Home, User, Settings, Images } from 'lucide-react';
 
 const navItems = [
   { href: '/', icon: Home, label: '홈' },
-  { href: '/explore', icon: Compass, label: '탐색' },
-  { href: '/bookmarks', icon: Bookmark, label: '북마크' },
-  { href: '/likes', icon: Heart, label: '좋아요' },
+  { href: '/trips', icon: Images, label: '내 Trip' },
   { href: '/users/me', icon: User, label: '내 정보' },
 ];
 
@@ -16,10 +14,10 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[60px] bg-white border-r border-gray-200 flex flex-col items-center py-4 z-40">
+    <aside className="fixed left-0 top-0 h-full w-[72px] bg-white border-r border-gray-200 flex flex-col items-center py-4 z-40">
       <Link href="/" className="mb-6">
-        <div className="w-9 h-9 flex items-center justify-center text-green-600">
-          <MapPin size={22} strokeWidth={2.5} />
+        <div className="w-10 h-10 flex items-center justify-center rounded-2xl border border-gray-200 text-gray-900 shadow-sm">
+          <MapPin size={22} strokeWidth={2.3} />
         </div>
       </Link>
 
@@ -32,9 +30,9 @@ export default function Sidebar() {
               key={href}
               href={href}
               title={label}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
+              className={`w-11 h-11 flex items-center justify-center rounded-2xl transition-colors ${
                 isActive
-                  ? 'bg-green-600 text-white'
+                  ? 'bg-emerald-50 text-emerald-600'
                   : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
               }`}
             >
@@ -47,7 +45,7 @@ export default function Sidebar() {
       <Link
         href="/settings"
         title="설정"
-        className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+        className="w-11 h-11 flex items-center justify-center rounded-2xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
       >
         <Settings size={20} />
       </Link>

@@ -11,6 +11,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * 인증의 "규칙표". 어떤 경로가 열려 있고 어디부터 로그인이 필요한지 정하고,
@@ -26,6 +31,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable()) // 토큰 인증이라 CSRF 불필요
             .sessionManagement(session -> // 세션 안 씀: 매 요청 토큰으로만 판단
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -37,9 +43,11 @@ public class SecurityConfig {
                     "/api/v1/auth/login",
                     "/api/v1/auth/reissue",
                     "/api/v1/auth/logout",
+                    "/api/v1/profile-images",
                     "/h2-console/**",
                     "/swagger-ui/**",
-                    "/v3/api-docs/**"
+                    "/v3/api-docs/**",
+                    "/images/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/trips").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/trips/*").permitAll()
@@ -57,5 +65,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 }

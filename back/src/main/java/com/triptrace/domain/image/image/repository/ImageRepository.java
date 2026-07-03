@@ -12,6 +12,8 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
 
     List<Image> findByPostId(Long postId);
 
+    List<Image> findByPostIdIn(List<Long> postIds);
+
     List<Image> findByOwnerId(Long ownerId);
 
     Optional<Image> findByOriginalFileUrl(String originalFileUrl);

@@ -12,6 +12,7 @@ import com.triptrace.domain.post.post.repository.PostRepository;
 import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -88,6 +89,7 @@ public class MarkerService {
     }
 
     // 수정
+    @Transactional
     public MarkerResponse modifyMarker(Long markerId, Long memberId, MarkerModifyRequest request) {
 
         Marker marker = markerRepository.findById(markerId)

@@ -11,6 +11,7 @@ import com.triptrace.domain.image.image.module.ImageProcessor;
 import com.triptrace.domain.image.image.module.SavedFileInfo;
 import com.triptrace.domain.image.image.module.exception.ImageProcessException;
 import com.triptrace.domain.image.image.service.ImageService;
+import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
@@ -32,6 +33,7 @@ public class ImageUploadFacade {
     private final ImageService imageService;
     private final ImageProcessor imageProcessor;
     private final TripService tripService;
+    private final ImageUrlResolver imageUrlResolver;
 
     //member service로 대체
     private final MemberRepository memberRepository;
@@ -66,7 +68,7 @@ public class ImageUploadFacade {
             log.warn(ImageExceptionCatalog.invalid().toString());
             return ImageFactory.createImageUploadResponse(fileName, null);
         }
-        return ImageFactory.createImageUploadResponse(fileName, imageServiceResponse);
+        return toPublicUrlResponse(ImageFactory.createImageUploadResponse(fileName, imageServiceResponse));
     }
     public List<ImageUploadResponse> uploadImages(Long ownerId, Long tripId, MultipartFile[] images){
         if(images == null || images.length == 0){
@@ -81,5 +83,20 @@ public class ImageUploadFacade {
             list.add(response);
         }
         return list;
+    }
+
+    private ImageUploadResponse toPublicUrlResponse(ImageUploadResponse response) {
+        if (response == null || response.uploadStatus() == null || response.uploadStatus().name().equals("FAILED")) {
+            return response;
+        }
+
+        return new ImageUploadResponse(
+            response.fileName(),
+            response.id(),
+            imageUrlResolver.toPublicUrl(response.originalFileUrl()),
+            imageUrlResolver.toPublicUrl(response.thumbnailUrl()),
+            response.mimeType(),
+            response.uploadStatus()
+        );
     }
 }

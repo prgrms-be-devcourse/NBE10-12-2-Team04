@@ -1,5 +1,6 @@
 package com.triptrace.domain.trip.trip.entity;
 
+import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -37,6 +38,10 @@ public class Trip extends BaseEntity {
     @Column(nullable = false)
     private Long likeCount = 0L;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "representative_image_id")
+    private Image representativeImage;
+
     public void increaseLikeCount() {
         this.likeCount++;
     }
@@ -59,6 +64,10 @@ public class Trip extends BaseEntity {
         this.startDate = startDate;
         this.endDate = endDate;
         this.visibility = visibility;
+    }
+
+    public void changeRepresentativeImage(Image representativeImage) {
+        this.representativeImage = representativeImage;
     }
 
     public Trip(

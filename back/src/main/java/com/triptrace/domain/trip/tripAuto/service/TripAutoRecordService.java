@@ -2,6 +2,7 @@ package com.triptrace.domain.trip.tripAuto.service;
 
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingClient;
@@ -15,6 +16,7 @@ import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -40,6 +42,7 @@ public class TripAutoRecordService {
     private final PostRepository postRepository;
     private final MarkerRepository markerRepository;
     private final ReverseGeocodingClient reverseGeocodingClient;
+    private final ImageUrlResolver imageUrlResolver;
 
     // 자동 생성은 Post 생성, Marker 생성, Image 연결이 하나의 작업이므로 중간 실패 시 전체 롤백
     @Transactional
@@ -69,24 +72,24 @@ public class TripAutoRecordService {
             // 대표 이미지의 촬영 시간과 GPS가 Post/Marker 생성 기준이 된다.
             Image representativeImage = selectRepresentativeImage(cluster);
             LocalDate recordDate = representativeImage.getCapturedAt().toLocalDate();
-            int recordHour = representativeImage.getCapturedAt().getHour();
+
+            // 장소명은 대표 이미지 GPS를 역지오코딩해서 채운다. 실패하면 기본 문구로 두고 생성은 계속 진행한다.
+            String placeName = reverseGeocodingClient.findPlaceName(
+                representativeImage.getGpsLat(),
+                representativeImage.getGpsLng()
+            );
+            String postTitle = "%s 근처".formatted(StringUtils.hasText(placeName) ? placeName : "위치 미정");
 
             // 클러스터 하나를 여행 기록 게시물 하나로 변환
             Post post = postRepository.save(new Post(
                 trip,
                 recordDate,
-                "%s %02d시 여행 기록".formatted(recordDate, recordHour),
+                postTitle,
                 ""
             ));
 
             // 클러스터 하나를 지도 마커 하나로 변환
             // Marker는 대표 Image만 참조
-            // 장소명은 대표 이미지 GPS를 역지오코딩해서 채운다. 실패하면 null로 두고 생성은 계속 진행한다.
-            String placeName = reverseGeocodingClient.findPlaceName(
-                representativeImage.getGpsLat(),
-                representativeImage.getGpsLng()
-            );
-
             Marker marker = markerRepository.save(new Marker(
                 post,
                 truncateCoordinate(representativeImage.getGpsLat()),
@@ -97,6 +100,10 @@ public class TripAutoRecordService {
                 representativeImage
             ));
 
+            if (trip.getRepresentativeImage() == null) {
+                trip.changeRepresentativeImage(representativeImage);
+            }
+
             // 자동 생성된 Post에 클러스터 내 이미지들을 연결
             // 트랜잭션 안의 영속 엔티티라 별도 save 없음
             cluster.forEach(image -> image.connectPost(post));
@@ -106,7 +113,9 @@ public class TripAutoRecordService {
                 post.getId(),
                 marker.getId(),
                 representativeImage.getId(),
-                representativeImage.getThumbnailUrl(),
+                imageUrlResolver.toPublicUrl(representativeImage.getThumbnailUrl()),
+                postTitle,
+                placeName,
                 recordDate,
                 marker.getCenterLat(),
                 marker.getCenterLng(),

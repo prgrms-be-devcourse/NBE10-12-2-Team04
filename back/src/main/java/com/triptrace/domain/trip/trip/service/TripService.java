@@ -2,6 +2,7 @@ package com.triptrace.domain.trip.trip.service;
 
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.repository.MemberRepository;
+import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
 import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
@@ -19,6 +20,7 @@ import java.util.List;
 public class TripService {
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public TripResponse create(Long ownerId, TripCreateRequest request) {
@@ -34,14 +36,14 @@ public class TripService {
             request.visibility()
         ));
 
-        return new TripResponse(trip);
+        return toResponse(trip);
     }
 
     @Transactional(readOnly = true)
     public List<TripResponse> findTripsByOwnerId(Long ownerId) {
         return tripRepository.findByOwnerId(ownerId)
             .stream()
-            .map(TripResponse::new)
+            .map(this::toResponse)
             .toList();
     }
 
@@ -49,7 +51,7 @@ public class TripService {
     public List<TripResponse> findPublicTrips() {
         return tripRepository.findByVisibilityTrue()
             .stream()
-            .map(TripResponse::new)
+            .map(this::toResponse)
             .toList();
     }
 
@@ -61,7 +63,7 @@ public class TripService {
             validateOwner(trip, ownerId);
         }
 
-        return new TripResponse(trip);
+        return toResponse(trip);
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +88,7 @@ public class TripService {
             request.visibility()
         );
 
-        return new TripResponse(trip);
+        return toResponse(trip);
     }
 
     @Transactional
@@ -101,7 +103,7 @@ public class TripService {
     public List<TripResponse> findTop10PublicTripsByLikeCount() {
         return tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc()
             .stream()
-            .map(TripResponse::new)
+            .map(this::toResponse)
             .toList();
     }
 
@@ -110,10 +112,13 @@ public class TripService {
     public List<TripResponse> findPublicTripsByCreatedAtDesc() {
         return tripRepository.findByVisibilityTrueOrderByCreatedAtDesc()
             .stream()
-            .map(TripResponse::new)
+            .map(this::toResponse)
             .toList();
     }
 
+    private TripResponse toResponse(Trip trip) {
+        return new TripResponse(trip, imageUrlResolver);
+    }
 
     private void validateOwner(Trip trip, Long ownerId) {
         if (!trip.getOwner().getId().equals(ownerId)) {
@@ -121,5 +126,4 @@ public class TripService {
         }
     }
 }
-
 

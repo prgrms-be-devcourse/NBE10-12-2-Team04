@@ -19,6 +19,8 @@ public record TripAutoRecordResponse(
         Long markerId,
         Long representativeImageId,
         String representativeThumbnailUrl,
+        String title,
+        String location,
         LocalDate date,
         BigDecimal centerLat,
         BigDecimal centerLng,

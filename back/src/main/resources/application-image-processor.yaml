@@ -6,3 +6,4 @@ spring:
 custom:
   servingImage: src/test/resources/images/serving
   thumbnailImage: src/test/resources/images/thumbnail
+  profileImage: src/test/resources/images/profile
