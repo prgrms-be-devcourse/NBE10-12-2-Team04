@@ -72,7 +72,7 @@ public class ApiV1ImageController {
         return new RsData<>(
             "200-1",
             "수정 되었습니다.",
-            imageModifyFacade.modifyById(email,tripId,postId,imageId)
+            imageModifyFacade.modifyByEmail(email,tripId,postId,imageId)
         );
     }
 

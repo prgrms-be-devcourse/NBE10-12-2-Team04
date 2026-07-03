@@ -38,25 +38,29 @@ public class ImageServiceImpl implements ImageService {
         return ImageFactory.createImageServiceResponse(image);
     }
     @Transactional
-    public void delete(Member owner, Trip trip, Post post, Long id) {
+    public ImageServiceResponse delete(Member owner, Trip trip, Post post, Long id) {
         Image image = getById(id);
         if( ! validateOwner(owner,image) ||
             ! validateTrip(trip,image)  ||
             ! validatePost(post,image)){
             throw ImageExceptionCatalog.forbidden();
         }
+        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
         imageRepository.delete(image);
+        return response;
     }
 
     @Transactional
-    public void delete(Member owner, Trip trip, Post post, String imageUrl) {
+    public ImageServiceResponse delete(Member owner, Trip trip, Post post, String imageUrl) {
         Image image = getByUrl(imageUrl);
         if( ! validateOwner(owner,image)||
             ! validateTrip(trip,image)  ||
             ! validatePost(post,image)){
             throw ImageExceptionCatalog.forbidden();
         }
+        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
         imageRepository.delete(image);
+        return response;
     }
 
 

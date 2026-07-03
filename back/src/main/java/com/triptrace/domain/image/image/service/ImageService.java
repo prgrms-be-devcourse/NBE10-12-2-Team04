@@ -16,8 +16,8 @@ public interface ImageService {
     List<ImageServiceResponse> findByTripId(Trip trip);
     List<ImageServiceResponse> findByPostId(Post post);
 
-    void delete(Member owner, Trip trip, Post post, Long id);
-    void delete(Member owner, Trip trip, Post post, String imageUrl);
+    ImageServiceResponse delete(Member owner, Trip trip, Post post, Long id);
+    ImageServiceResponse delete(Member owner, Trip trip, Post post, String imageUrl);
 
     ImageServiceResponse modifyPost(Member owner, Trip tripId, Post post, Long imageId);
 }

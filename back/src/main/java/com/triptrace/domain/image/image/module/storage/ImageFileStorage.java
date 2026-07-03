@@ -4,6 +4,7 @@ import com.triptrace.domain.image.image.module.ExifOrientation;
 import com.triptrace.domain.image.image.module.SavedFileInfo;
 import com.triptrace.domain.image.image.module.dto.StoredFile;
 import com.triptrace.domain.image.image.module.exception.ImageProcessException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -16,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
+@Slf4j
 @Component
 public class ImageFileStorage {
     //TODO:ERROR CODE ENUM으로 변경
@@ -26,8 +28,11 @@ public class ImageFileStorage {
     //저장하는 과정 중에서 저장 불가
     private static final String IMAGE_PROCESSING_SAVE_ERROR = "400-4";
 
+    private static final String IMAGE_PROCESSING_DELETE_ERROR = "400-5";
     //upload 경로
     private final String uploadDir;
+    //프로필 이미지 보관 경로
+    private final String profileImagesPath;
     //서빙용 이미지 보관 경로
     private final String servingImagesPath;
     //섬네일 이미지 보관 경로
@@ -47,14 +52,17 @@ public class ImageFileStorage {
         this.thumbnailWidth = properties.thumbnail().width();
         this.thumbnailHeight = properties.thumbnail().height();
         this.jpegExt = properties.ext().jpg();
+        this.profileImagesPath = properties.upload().profile();
         this.fileStorage = fileStorage;
     }
 
     //profile이미지 진입점
-    public StoredFile saveImage(byte[] file, String filePath, String fileName) throws ImageProcessException {
-        BufferedImage bufferedImage = getBufferedImage(file);
-        return saveImage(bufferedImage,filePath,fileName,false);
+    public String saveProfileImage(byte[] image) throws ImageProcessException {
+        BufferedImage bufferedImage = getBufferedImage(image);
+        StoredFile stored = saveImage(bufferedImage, uploadDir + "/" + profileImagesPath, generateFileName(jpegExt), false);
+        return profileImagesPath + "/" + stored.name();
     }
+
     private StoredFile saveImage(BufferedImage image, String directoryPath, String fileName, boolean isThumbnail) throws ImageProcessException {
         long fileSize=0L;
         StoredFile storedFile = null;
@@ -90,8 +98,20 @@ public class ImageFileStorage {
             thumbnailImagesPath + "/"+ thumbnail.name(),
             origin.size());
     }
+    //
+    public boolean deleteImage(String imagePath) throws ImageProcessException {
+        try {
+            fileStorage.delete(uploadDir + imagePath);
+        }catch (IOException e){
+            log.warn(imagePath, e);
+            throw new ImageProcessException(IMAGE_PROCESSING_DELETE_ERROR, "파일 삭제에 실패했습니다.");
+        }
+        return true;
+    }
+
+
     //편의성
-    public BufferedImage getBufferedImage(byte[] image) throws ImageProcessException {
+    private BufferedImage getBufferedImage(byte[] image) throws ImageProcessException {
         if (image == null) {
             throw new ImageProcessException(IMAGE_PROCESSING_ERROR, "이미지를 읽을 수 없습니다.");
         }
