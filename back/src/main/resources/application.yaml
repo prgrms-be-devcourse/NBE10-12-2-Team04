@@ -39,3 +39,4 @@ custom:
   google:
     maps:
       api-key: ${GOOGLE_MAPS_API_KEY:}
+  profileImage: /src/test/resources/images/profile
