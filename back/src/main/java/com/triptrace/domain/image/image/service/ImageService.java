@@ -15,11 +15,8 @@ import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -76,7 +73,6 @@ public class ImageService {
         disconnectRepresentativeReferences(image.getId());
         return delete(image);
     }
-
 
     private void disconnectRepresentativeReferences(Long imageId) {
         tripRepository.findByRepresentativeImageId(imageId)

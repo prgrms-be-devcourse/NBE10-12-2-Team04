@@ -88,18 +88,24 @@ public class ImageServiceFacadeTest {
         this.owner = member;
         Trip trip = createTrip(member);
         this.trip = trip;
-        Post post = postRepository.save(new Post(
-            trip,
-            LocalDate.of(2024, 4, 1),
-            "첫날, 교토 도착",
-            "교토에 도착했다."
-        ));
-        Post post2 = postRepository.save(new Post(
-            trip,
-            LocalDate.of(2024, 4, 1),
-            "첫날, 교토 도착",
-            "교토에 도착했다."
-        ));
+        Post post = postRepository.save(
+            new Post(
+                trip,
+                LocalDate.of(
+                    2024,
+                    4,
+                    1),
+                "첫날, 교토 도착",
+                "교토에 도착했다."));
+        Post post2 = postRepository.save(
+            new Post(
+                trip,
+                LocalDate.of(
+                    2024,
+                    4,
+                    1),
+                "첫날, 교토 도착",
+                "교토에 도착했다."));
         this.post = post;
         this.otherPost = post2;
     }
@@ -110,15 +116,25 @@ public class ImageServiceFacadeTest {
     }
 
     private Trip createTrip(Member member) {
-        return tripRepository.save(new Trip(
-            member,
-            "교토 여행",
-            "일본",
-            "교토",
-            LocalDateTime.of(2024, 4, 1, 0, 0),
-            LocalDateTime.of(2024, 4, 5, 0, 0),
-            true
-        ));
+        return tripRepository.save(
+            new Trip(
+                member,
+                "교토 여행",
+                "일본",
+                "교토",
+                LocalDateTime.of(
+                    2024,
+                    4,
+                    1,
+                    0,
+                    0),
+                LocalDateTime.of(
+                    2024,
+                    4,
+                    5,
+                    0,
+                    0),
+                true));
     }
 
     private MultipartFile toMultipartFile() throws IOException {
@@ -126,8 +142,7 @@ public class ImageServiceFacadeTest {
             "images",
             imageFileName,
             "image/jpeg",
-            new ByteArrayInputStream(bytes)
-        );
+            new ByteArrayInputStream(bytes));
     }
 
     @Test
@@ -153,8 +168,7 @@ public class ImageServiceFacadeTest {
             post.getId(), files);
         ImageUploadResponse uploaded = uploadImages.stream().findFirst().get();
 
-        assertThatThrownBy(() -> imageService.findById(uploaded.id()))
-            .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> imageService.findById(uploaded.id())).isInstanceOf(ServiceException.class);
     }
 
     @Test
@@ -188,8 +202,7 @@ public class ImageServiceFacadeTest {
 
         imageDeleteFacade.deleteById(owner.getId(), trip.getId(), res.getFirst().id());
 
-        assertThatThrownBy(() -> imageService.findById(res.getFirst().id()))
-            .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> imageService.findById(res.getFirst().id())).isInstanceOf(ServiceException.class);
     }
 
     @Test
@@ -202,40 +215,40 @@ public class ImageServiceFacadeTest {
         assertThat(res.size()).isEqualTo(1);
         assertThat(res.getFirst().uploadStatus()).isEqualTo(UploadStatus.STORED);
 
-        assertThatThrownBy(
-            () -> imageDeleteFacade.deleteById(owner.getId(), trip.getId(), otherPost.getId(), res.getFirst().id()))
-            .isInstanceOf(ServiceException.class);
-    }
-
-    @Test
-    @DisplayName("")
-    void test06() throws IOException {
-        MultipartFile[] files = new MultipartFile[] {toMultipartFile()};
-        List<ImageUploadResponse> res = imageUploadFacade.uploadImages(owner.getId(), trip.getId(), post.getId(),
-            files);
-
-        assertThat(res.size()).isEqualTo(1);
-        assertThat(res.getFirst().uploadStatus()).isEqualTo(UploadStatus.STORED);
-
-        assertThatThrownBy(() -> imageDeleteFacade.deleteByUrl(owner.getId(), trip.getId(), otherPost.getId(),
-            res.getFirst().originalFileUrl()))
-            .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> imageDeleteFacade.deleteById(owner.getId(), trip.getId(), otherPost.getId(),
+            res.getFirst().id())).isInstanceOf(
+            ServiceException.class);
     }
 
     @Test
     @DisplayName("Post 없이 URL 이미지를 삭제할 때 다른 Post가 있는 이미지였다면 삭제할 수 없다.")
-    void test07() throws IOException {
+    void test06() throws IOException {
         MultipartFile[] files = new MultipartFile[] {toMultipartFile()};
-        List<ImageUploadResponse> res = imageUploadFacade.uploadImages(owner.getId(), trip.getId(), post.getId(),
-            files);
+        List<ImageUploadResponse> res = imageUploadFacade
+            .uploadImages(owner.getId(), trip.getId(), post.getId(), files);
 
         assertThat(res.size()).isEqualTo(1);
         assertThat(res.getFirst().uploadStatus()).isEqualTo(UploadStatus.STORED);
 
-        assertThatThrownBy(() -> imageDeleteFacade.deleteByUrl(owner.getId(), trip.getId(), otherPost.getId(),
-            res.getFirst().originalFileUrl()))
+        assertThatThrownBy(() ->
+            imageDeleteFacade
+                .deleteByUrl(owner.getId(), trip.getId(), otherPost.getId(), res.getFirst().originalFileUrl()))
             .isInstanceOf(ServiceException.class);
+    }
 
-        ;
+    @Test
+    @DisplayName("새로운 postId로 Image가 참조하는 post를 덮어쓴다.")
+    void test07() throws IOException {
+        MultipartFile[] files = new MultipartFile[] {toMultipartFile()};
+        List<ImageUploadResponse> res = imageUploadFacade
+            .uploadImages(owner.getId(), trip.getId(), post.getId(), files);
+
+        assertThat(res.size()).isEqualTo(1);
+        assertThat(res.getFirst().uploadStatus()).isEqualTo(UploadStatus.STORED);
+
+        assertThat(
+            imageModifyFacade
+                .modifyById(owner.getId(), trip.getId(), otherPost.getId(), res.getFirst().id())
+                .postId()).isNotEqualTo(post.getId());
     }
 }
