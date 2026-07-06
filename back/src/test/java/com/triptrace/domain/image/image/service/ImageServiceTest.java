@@ -1,5 +1,17 @@
 package com.triptrace.domain.image.image.service;
 
+import static org.assertj.core.api.Assertions.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.triptrace.domain.image.image.dto.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.entity.UploadStatus;
@@ -15,23 +27,11 @@ import com.triptrace.domain.post.post.repository.PostRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
 import com.triptrace.global.exception.ServiceException;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ActiveProfiles("test")
 @SpringBootTest
 @Transactional
-class ImageServiceImplTest {
+class ImageServiceTest {
     @Autowired
     private ImageService imageService;
     @Autowired
@@ -84,7 +84,7 @@ class ImageServiceImplTest {
 
         ImageServiceResponse response = imageService.modifyPost(owner, trip, post, image.getId());
 
-        assertThat(response.post().getId()).isEqualTo(post.getId());
+        assertThat(response.postId()).isEqualTo(post.getId());
     }
 
     @Test

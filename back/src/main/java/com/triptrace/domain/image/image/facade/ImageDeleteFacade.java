@@ -41,4 +41,13 @@ public class ImageDeleteFacade {
         imageFileStorage.deleteImage(imageServiceResponse.originalFileUrl());
         imageFileStorage.deleteImage(imageServiceResponse.thumbnailUrl());
     }
+
+    @Transactional
+    public void deleteById(Long ownerId, Long tripId, Long imageId) {
+        Member owner = memberService.findById(ownerId);
+        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
+        ImageServiceResponse imageServiceResponse = imageService.delete(owner, trip, imageId);
+        imageFileStorage.deleteImage(imageServiceResponse.originalFileUrl());
+        imageFileStorage.deleteImage(imageServiceResponse.thumbnailUrl());
+    }
 }

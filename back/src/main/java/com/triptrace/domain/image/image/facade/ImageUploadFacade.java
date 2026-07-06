@@ -18,11 +18,11 @@ import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.service.PostService;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.service.TripService;
-import com.triptrace.global.exception.ServiceException;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,9 +37,8 @@ public class ImageUploadFacade {
     private final ImageService imageService;
     private final ImageMetadataExtractor imageMetadataExtractor;
     private final ImageFileStorage imageFileStorage;
-    private final TripService tripService;
 
-    //member service로 대체
+    private final TripService tripService;
     private final MemberService memberService;
     private final PostService postService;
 
@@ -56,7 +55,11 @@ public class ImageUploadFacade {
         return imageInfo;
     }
 
-    ImageUploadResponse upload(Member owner, Trip trip, MultipartFile imageFile) {
+    private ImageUploadResponse upload(Member owner, Trip trip, MultipartFile imageFile) {
+        return upload(owner, trip, null, imageFile);
+    }
+
+    private ImageUploadResponse upload(Member owner, Trip trip, Post post, MultipartFile imageFile) {
         //예외 반환 안 함
         //uploadImages의 부속 메서드 10개 중 2개 실패한다더라도 8개는 저장해야함
         String fileName = imageFile.getOriginalFilename();
@@ -75,20 +78,22 @@ public class ImageUploadFacade {
         catch(IOException | ImageProcessException e){
             //저장 실패시 응답 반환 - 로그만
             log.warn(e.getMessage());
-            return ImageFactory.createImageUploadResponse(fileName, null);
+            return ImageFactory.createImageUploadResponse(fileName, null, "FILE SAVE FAILED");
         }
         //insert db
-        Image image = ImageFactory.createImage(owner, trip, imageInfo, imageFileRequest);
+        Image image = ImageFactory.createImage(owner, trip, post, imageInfo, imageFileRequest);
         ImageServiceResponse imageServiceResponse = null;
         try {
             imageServiceResponse = imageService.create(image);
-        }catch(ImageProcessException e){
+        }catch(IllegalArgumentException | OptimisticLockingFailureException e){
             //DB 저장 실패
             imageFileStorage.cleanUp(savedFileInfo);
             log.warn(e.getMessage());
+            return ImageFactory.createImageUploadResponse(fileName, null, "SERVER SAVE FAILED");
         }
         return ImageFactory.createImageUploadResponse(fileName, imageServiceResponse);
     }
+
     public List<ImageUploadResponse> uploadImages(Long ownerId,
                                                   Long tripId,
                                                   @NotEmpty MultipartFile[] images){
@@ -101,32 +106,19 @@ public class ImageUploadFacade {
         }
         return list;
     }
-
-    public ImageUploadResponse uploadImage(Long ownerId, Long tripId, Long postId, MultipartFile imageFile) {
+    public List<ImageUploadResponse> uploadImages(Long ownerId,
+                                                  Long tripId,
+                                                  Long postId,
+                                                  @NotEmpty MultipartFile[] images) {
         //Post가 있는 경우 업로드
+        List<ImageUploadResponse> list = new ArrayList<>();
         Member owner = memberService.findById(ownerId);
         Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         Post post = postService.getPost(trip, postId);
-        ImageInfo imageInfo = extract(imageFile);
-        SavedFileInfo savedFileInfo;
-        try {
-            byte[] bytes = imageFile.getBytes();
-            savedFileInfo = imageFileStorage.saveImageWithThumbnail(bytes,imageInfo.getOrientation());
-            if(savedFileInfo == null){
-                throw ImageExceptionCatalog.invalid();
-            }
-        } catch (IOException | ServiceException e) {
-            throw ImageExceptionCatalog.invalid();
+        for (MultipartFile imageFile : images) {
+            list.add(upload(owner, trip, post, imageFile));
         }
-        Image image = ImageFactory.createImage(owner, trip, post, imageInfo, ImageFactory.createImageFileRequest(savedFileInfo));
-        ImageServiceResponse imageServiceResponse = null;
-        try {
-            imageServiceResponse = imageService.create(image);
-        }catch (RuntimeException e){
-            imageFileStorage.cleanUp(savedFileInfo);
-            throw e;
-        }
-        return ImageFactory.createImageUploadResponse(imageFile.getName(),imageServiceResponse);
+        return list;
     }
 
     public String uploadProfile(
@@ -149,4 +141,6 @@ public class ImageUploadFacade {
         }
         return url;
     }
+
+
 }
