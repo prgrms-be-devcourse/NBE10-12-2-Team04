@@ -116,6 +116,11 @@ public class Image extends BaseEntity {
     public void modifyPost(Post post){
         this.post = post;
     }
+
+    public void disconnectPost() {
+        this.post = null;
+    }
+
     public void modifyStatus(UploadStatus uploadStatus){
         this.uploadStatus = uploadStatus;
     }

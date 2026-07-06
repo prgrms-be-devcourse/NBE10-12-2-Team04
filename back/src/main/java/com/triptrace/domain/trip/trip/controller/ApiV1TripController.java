@@ -2,11 +2,15 @@ package com.triptrace.domain.trip.trip.controller;
 
 import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
 import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
+import com.triptrace.domain.trip.trip.dto.TripRepresentativeImageRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,6 +44,18 @@ public class ApiV1TripController {
             "200-1",
             "내 여행기 목록 조회에 성공했습니다.",
             tripService.findTripsByOwnerId(memberId)
+        );
+    }
+
+    @GetMapping(value = "/users/me/trips", params = {"page", "size"})
+    public RsData<Page<TripResponse>> getMyTrips(
+        @AuthenticationPrincipal Long memberId,
+        @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return new RsData<>(
+            "200-1",
+            "내 여행기 목록 조회에 성공했습니다.",
+            tripService.findTripsByOwnerId(memberId, pageable)
         );
     }
 
@@ -87,6 +103,19 @@ public class ApiV1TripController {
         return new RsData<>(
             "200-1",
             "%d번 여행기가 삭제되었습니다.".formatted(tripId)
+        );
+    }
+
+    @PatchMapping("/trips/{tripId}/representative-image")
+    public RsData<TripResponse> changeRepresentativeImage(
+        @PathVariable Long tripId,
+        @AuthenticationPrincipal Long memberId,
+        @RequestBody @Valid TripRepresentativeImageRequest request
+    ) {
+        return new RsData<>(
+            "200-1",
+            "%d번 여행기 대표이미지가 수정되었습니다.".formatted(tripId),
+            tripService.changeRepresentativeImage(tripId, memberId, request.imageId())
         );
     }
 }

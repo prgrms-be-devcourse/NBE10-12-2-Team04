@@ -1,5 +1,11 @@
 package com.triptrace.domain.post.post.service;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.entity.MarkerSource;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
@@ -18,10 +24,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +47,12 @@ class PostServiceTest {
 
     @Autowired
     private PostRepository postRepository;
+
+    @Autowired
+    private MarkerRepository markerRepository;
+
+    @Autowired
+    private ImageRepository imageRepository;
 
     @Test
     @DisplayName("소유자는 여행기에 게시물을 생성할 수 있다.")
@@ -159,6 +171,34 @@ class PostServiceTest {
         assertThat(postRepository.existsById(post.getId())).isFalse();
     }
 
+    @Test
+    @DisplayName("게시물 삭제 시 마커를 삭제하고 이미지는 여행기 업로드 상태로 되돌린다.")
+    void deleteByOwnerWithMarkerAndImages() {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "교토 여행");
+        Post post = createPost(trip, LocalDate.of(2026, 1, 1), "삭제할 게시물");
+        Image image = createImage(owner, trip, post, "kyoto.jpg");
+        Marker marker = markerRepository.save(new Marker(
+            post,
+            BigDecimal.valueOf(35.0116363),
+            BigDecimal.valueOf(135.7680294),
+            "교토역",
+            LocalDateTime.of(2026, 1, 1, 10, 0),
+            MarkerSource.AUTO,
+            image
+        ));
+        trip.changeRepresentativeImage(image);
+
+        postService.deletePost(post.getId(), owner.getId());
+        postRepository.flush();
+
+        assertThat(postRepository.existsById(post.getId())).isFalse();
+        assertThat(markerRepository.existsById(marker.getId())).isFalse();
+        Image foundImage = imageRepository.findById(image.getId()).orElseThrow();
+        assertThat(foundImage.getPost()).isNull();
+        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getRepresentativeImage()).isNull();
+    }
+
     private Member createMember(String username) {
         return memberRepository.save(new Member(
             "%s@test.com".formatted(username),
@@ -191,6 +231,19 @@ class PostServiceTest {
             date,
             title,
             "교토 여행 메모"
+        ));
+    }
+
+    private Image createImage(Member owner, Trip trip, Post post, String fileName) {
+        return imageRepository.save(new Image(
+            owner,
+            trip,
+            post,
+            "/images/serving/%s".formatted(fileName),
+            "/images/thumbnail/%s".formatted(fileName),
+            1024L,
+            "image/jpeg",
+            UploadStatus.STORED
         ));
     }
 }

@@ -4,6 +4,9 @@ import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +32,17 @@ public class ApiV1TripFeedController {
             "200-1",
             "여행기 최신순 조회에 성공했습니다.",
             tripService.findPublicTripsByCreatedAtDesc()
+        );
+    }
+
+    @GetMapping(value = "/recent", params = {"page", "size"})
+    public RsData<Page<TripResponse>> getVisibilityTrueOrderByCreatedAtDesc(
+        @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return new RsData<> (
+            "200-1",
+            "여행기 최신순 조회에 성공했습니다.",
+            tripService.findPublicTripsByCreatedAtDesc(pageable)
         );
     }
 }

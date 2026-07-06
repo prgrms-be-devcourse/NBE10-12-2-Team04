@@ -11,4 +11,6 @@ public interface MarkerRepository extends JpaRepository<Marker, Long> {
     Optional<Marker> findByPostId(Long postId);
 
     List<Marker> findByPostIdIn(List<Long> postIds);
+
+    List<Marker> findByRepresentativeImageId(Long representativeImageId);
 }

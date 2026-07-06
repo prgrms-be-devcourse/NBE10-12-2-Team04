@@ -5,9 +5,11 @@ import com.triptrace.domain.image.image.dto.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.factory.ImageFactory;
 import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.trip.trip.entity.Trip;
+import com.triptrace.domain.trip.trip.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ImageService {
     private final ImageRepository imageRepository;
+    private final TripRepository tripRepository;
+    private final MarkerRepository markerRepository;
 
     @Transactional
     public ImageServiceResponse create(Image image) {
@@ -48,6 +52,7 @@ public class ImageService {
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, Long id) {
         Image image = getById(id);
         validate(owner, trip, post, image);
+        disconnectRepresentativeReferences(image.getId());
         return delete(image);
     }
 
@@ -55,7 +60,15 @@ public class ImageService {
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, String imageUrl) {
         Image image = getByUrl(imageUrl);
         validate(owner, trip, post, image);
+        disconnectRepresentativeReferences(image.getId());
         return delete(image);
+    }
+
+    private void disconnectRepresentativeReferences(Long imageId) {
+        tripRepository.findByRepresentativeImageId(imageId)
+            .forEach(trip -> trip.changeRepresentativeImage(null));
+        markerRepository.findByRepresentativeImageId(imageId)
+            .forEach(marker -> marker.changeRepresentativeImage(null));
     }
 
     private Image getById(Long id) {

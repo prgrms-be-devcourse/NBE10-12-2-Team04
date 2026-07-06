@@ -91,6 +91,19 @@ public class PostService {
             .orElseThrow(() -> new ServiceException("404-1", "게시물을 찾을 수 없습니다."));
         validateOwner(post.getTrip(), ownerId);
 
+        boolean usesRepresentativeImage = post.getTrip().getRepresentativeImage() != null &&
+            post.getTrip().getRepresentativeImage().getPost() != null &&
+            post.getTrip().getRepresentativeImage().getPost().getId().equals(postId);
+
+        markerRepository.findByPostId(postId)
+            .ifPresent(markerRepository::delete);
+        imageRepository.findByPostId(postId)
+            .forEach(Image::disconnectPost);
+
+        if (usesRepresentativeImage) {
+            post.getTrip().changeRepresentativeImage(null);
+        }
+
         postRepository.delete(post);
     }
 

@@ -1,13 +1,22 @@
 package com.triptrace.domain.trip.trip.service;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.entity.MarkerSource;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
+import com.triptrace.domain.post.post.entity.Post;
+import com.triptrace.domain.post.post.repository.PostRepository;
 import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
 import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
+import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import com.triptrace.global.exception.ServiceException;
 import org.junit.jupiter.api.DisplayName;
@@ -17,9 +26,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +49,18 @@ class TripServiceTest {
 
     @Autowired
     private TripLikeService tripLikeService;
+
+    @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
+    private MarkerRepository markerRepository;
+
+    @Autowired
+    private ImageRepository imageRepository;
+
+    @Autowired
+    private TripLikeRepository tripLikeRepository;
 
     @Test
     @DisplayName("ownerId를 받아 여행기를 생성한다.")
@@ -199,6 +221,62 @@ class TripServiceTest {
         assertThat(tripRepository.existsById(trip.getId())).isFalse();
     }
 
+    @Test
+    @DisplayName("소유자는 게시물, 마커, 이미지, 좋아요가 연결된 여행기를 삭제할 수 있다.")
+    void deleteByOwnerWithRelations() {
+        Member owner = createMember("owner");
+        Member liker = createMember("liker");
+        Trip trip = createTrip(owner, "연결 데이터가 있는 여행기");
+        Post post = createPost(trip, LocalDate.of(2026, 1, 2), "둘째 날");
+        Image image = createImage(owner, trip, post, "kyoto.jpg");
+        Marker marker = markerRepository.save(new Marker(
+            post,
+            BigDecimal.valueOf(35.0116363),
+            BigDecimal.valueOf(135.7680294),
+            "교토역",
+            LocalDateTime.of(2026, 1, 2, 10, 0),
+            MarkerSource.AUTO,
+            image
+        ));
+        trip.changeRepresentativeImage(image);
+        tripLikeService.createLike(liker.getId(), trip.getId());
+
+        tripService.deleteTrip(trip.getId(), owner.getId());
+        tripRepository.flush();
+
+        assertThat(tripRepository.existsById(trip.getId())).isFalse();
+        assertThat(postRepository.existsById(post.getId())).isFalse();
+        assertThat(markerRepository.existsById(marker.getId())).isFalse();
+        assertThat(imageRepository.existsById(image.getId())).isFalse();
+        assertThat(tripLikeRepository.countByTripId(trip.getId())).isZero();
+    }
+
+    @Test
+    @DisplayName("소유자는 여행기 대표이미지를 변경할 수 있다.")
+    void changeRepresentativeImage() {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "대표이미지 변경 여행기");
+        Image image = createImage(owner, trip, null, "representative.jpg");
+
+        TripResponse response = tripService.changeRepresentativeImage(trip.getId(), owner.getId(), image.getId());
+
+        assertThat(response.thumbnailUrl()).endsWith("representative.jpg");
+        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getRepresentativeImage()).isEqualTo(image);
+    }
+
+    @Test
+    @DisplayName("소유자가 아니면 여행기 대표이미지를 변경할 수 없다.")
+    void changeRepresentativeImageForbidden() {
+        Member owner = createMember("owner");
+        Member other = createMember("other");
+        Trip trip = createTrip(owner, "대표이미지 변경 방어");
+        Image image = createImage(owner, trip, null, "representative.jpg");
+
+        assertThatThrownBy(() -> tripService.changeRepresentativeImage(trip.getId(), other.getId(), image.getId()))
+            .isInstanceOf(ServiceException.class)
+            .hasMessage("403-1 : 여행기에 대한 권한이 없습니다.");
+    }
+
     private Member createMember(String username) {
         return memberRepository.save(new Member(
             "%s@test.com".formatted(username),
@@ -222,6 +300,28 @@ class TripServiceTest {
             LocalDateTime.of(2026, 1, 1, 0, 0),
             LocalDateTime.of(2026, 1, 5, 0, 0),
             visibility
+        ));
+    }
+
+    private Post createPost(Trip trip, LocalDate date, String title) {
+        return postRepository.save(new Post(
+            trip,
+            date,
+            title,
+            "교토 여행 메모"
+        ));
+    }
+
+    private Image createImage(Member owner, Trip trip, Post post, String fileName) {
+        return imageRepository.save(new Image(
+            owner,
+            trip,
+            post,
+            "/images/serving/%s".formatted(fileName),
+            "/images/thumbnail/%s".formatted(fileName),
+            1024L,
+            "image/jpeg",
+            UploadStatus.STORED
         ));
     }
 
