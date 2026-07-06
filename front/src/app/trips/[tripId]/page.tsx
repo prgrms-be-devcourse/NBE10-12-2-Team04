@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
-import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, X, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { GoogleMap, InfoWindow, Marker, OverlayView, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { isAuthenticated, tripApi, postApi, likeApi, userApi } from '@/lib/api';
 import type { Trip, Post } from '@/types';
 
@@ -35,6 +35,86 @@ function getMarkerPosition(index: number) {
     top: 30 + (index % 4) * 12,
     left: 22 + (index % 5) * 14,
   };
+}
+
+function formatDayLabel(day: string, index: number) {
+  const formatted = day ? day.replaceAll('-', '.') : '';
+  return `Day ${index + 1}${formatted ? ` - ${formatted}` : ''}`;
+}
+
+function getPostMarkerImageUrl(post: Post) {
+  return post.marker?.representativeImageUrl || post.images?.[0]?.url || '';
+}
+
+function PostPreviewCard({ post }: { post: Post }) {
+  const imageUrl = getPostMarkerImageUrl(post);
+
+  return (
+    <div className="flex w-[220px] gap-2 rounded-lg bg-white p-2 shadow-lg ring-1 ring-black/5">
+      <div className="h-14 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <MapPin size={16} className="text-green-600" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-1 text-xs font-bold text-gray-900">{post.title}</p>
+        <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-500">{post.content || post.marker?.placeName || '간단한 기록을 확인하세요.'}</p>
+      </div>
+    </div>
+  );
+}
+
+function PhotoMapMarker({
+  post,
+  index,
+  selected,
+  onClick,
+}: {
+  post: Post;
+  index: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const imageUrl = getPostMarkerImageUrl(post);
+
+  if (!imageUrl) {
+    return (
+      <Marker
+        position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
+        onClick={onClick}
+        label={{
+          text: String(index + 1),
+          color: selected ? '#ffffff' : '#064e3b',
+          fontSize: '12px',
+          fontWeight: '700',
+        }}
+        title={post.marker?.placeName ?? post.title}
+      />
+    );
+  }
+
+  return (
+    <OverlayView
+      position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
+      mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className={`relative h-12 w-12 -translate-x-1/2 -translate-y-full overflow-hidden rounded-full border-[3px] bg-white shadow-lg transition-transform hover:scale-105 ${
+          selected ? 'border-green-600' : 'border-white'
+        }`}
+        title={post.marker?.placeName ?? post.title}
+      >
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        <span className="absolute -bottom-0.5 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-white" />
+      </button>
+    </OverlayView>
+  );
 }
 
 function FallbackTripMap({
@@ -86,6 +166,17 @@ function FallbackTripMap({
             <span className="sr-only">{i + 1}번째 기록으로 이동</span>
           </button>
       ))}
+      {points.map(({ post, top, left }) => (
+        selectedPostId === post.id ? (
+          <div
+            key={`${post.id}-preview`}
+            className="absolute z-20 -translate-x-1/2 -translate-y-[115%]"
+            style={{ top: `${top}%`, left: `${left}%` }}
+          >
+            <PostPreviewCard post={post} />
+          </div>
+        ) : null
+      ))}
       {!googleMapsApiKey && (
         <p className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-medium text-gray-500 shadow">
           NEXT_PUBLIC_GOOGLE_MAPS_API_KEY가 필요합니다.
@@ -99,16 +190,18 @@ function GoogleTripMap({
   posts,
   selectedPostId,
   onMarkerSelect,
+  sheetTop,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
+  sheetTop: number;
 }) {
-  const markerPosts = getMarkerPosts(posts);
-  const path = markerPosts.map((post) => ({
+  const markerPosts = useMemo(() => getMarkerPosts(posts), [posts]);
+  const path = useMemo(() => markerPosts.map((post) => ({
     lat: post.marker!.lat,
     lng: post.marker!.lng,
-  }));
+  })), [markerPosts]);
   const center = path[0] ?? { lat: 37.5665, lng: 126.978 };
   const mapRef = useRef<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
@@ -118,15 +211,20 @@ function GoogleTripMap({
 
   useEffect(() => {
     if (!isLoaded || !mapRef.current || path.length === 0) return;
+    const bottomPadding = Math.max(120, window.innerHeight - sheetTop + 24);
     const bounds = new google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
     if (path.length === 1) {
-      mapRef.current.setCenter(path[0]);
-      mapRef.current.setZoom(12);
-      return;
+      bounds.extend({ lat: path[0].lat + 0.01, lng: path[0].lng + 0.01 });
+      bounds.extend({ lat: path[0].lat - 0.01, lng: path[0].lng - 0.01 });
     }
-    mapRef.current.fitBounds(bounds, 56);
-  }, [isLoaded, path.length, posts]);
+    mapRef.current.fitBounds(bounds, {
+      top: 96,
+      right: 72,
+      bottom: bottomPadding,
+      left: 72,
+    });
+  }, [isLoaded, path, sheetTop]);
 
   if (loadError) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
@@ -164,18 +262,24 @@ function GoogleTripMap({
         />
       )}
       {markerPosts.map((post, index) => (
-        <Marker
+        <PhotoMapMarker
           key={post.id}
-          position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
+          post={post}
+          index={index}
+          selected={selectedPostId === post.id}
           onClick={() => onMarkerSelect(post)}
-          label={{
-            text: String(index + 1),
-            color: selectedPostId === post.id ? '#ffffff' : '#064e3b',
-            fontSize: '12px',
-            fontWeight: '700',
-          }}
-          title={post.marker?.placeName ?? post.title}
         />
+      ))}
+      {markerPosts.map((post) => (
+        selectedPostId === post.id ? (
+          <InfoWindow
+            key={`${post.id}-preview`}
+            position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
+            options={{ pixelOffset: new google.maps.Size(0, -34), disableAutoPan: false }}
+          >
+            <PostPreviewCard post={post} />
+          </InfoWindow>
+        ) : null
       ))}
     </GoogleMap>
   );
@@ -185,16 +289,18 @@ function TripMap({
   posts,
   selectedPostId,
   onMarkerSelect,
+  sheetTop,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
+  sheetTop: number;
 }) {
   if (!googleMapsApiKey || getMarkerPosts(posts).length === 0) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
   }
 
-  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
+  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} />;
 }
 
 // ── Day 탭 ────────────────────────────────────────────────────────────
@@ -219,7 +325,7 @@ function DayTabs({
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
-          Day {i + 1}
+          {formatDayLabel(day, i)}
         </button>
       ))}
     </div>
@@ -274,11 +380,13 @@ export default function TripDetailPage() {
   const [activeDay, setActiveDay] = useState('');
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [showDetail, setShowDetail] = useState(true);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [sheetTop, setSheetTop] = useState(220);
+  const [message, setMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dragRef = useRef<{ y: number; top: number } | null>(null);
 
   useEffect(() => {
     async function loadTripDetail() {
@@ -352,13 +460,42 @@ export default function TripDetailPage() {
     }
   };
 
+  const handleDeleteTrip = async () => {
+    if (!confirm('이 Trip을 삭제하시겠습니까?')) return;
+    try {
+      await tripApi.delete(tripId);
+      router.push('/trips');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Trip 삭제에 실패했습니다.');
+    }
+  };
+
   const focusPost = (post: Post) => {
-    setShowDetail(true);
     setActiveDay(post.date);
     setFocusedPostId(post.id);
     window.setTimeout(() => {
       postRefs.current[post.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
+  };
+
+  const startSheetDrag = (event: React.MouseEvent<HTMLDivElement>) => {
+    dragRef.current = { y: event.clientY, top: sheetTop };
+    window.addEventListener('mousemove', moveSheetDrag);
+    window.addEventListener('mouseup', endSheetDrag);
+  };
+
+  const moveSheetDrag = (event: MouseEvent) => {
+    if (!dragRef.current) return;
+    const minTop = mapExpanded ? 96 : 160;
+    const maxTop = window.innerHeight - 220;
+    const next = dragRef.current.top + event.clientY - dragRef.current.y;
+    setSheetTop(Math.max(minTop, Math.min(maxTop, next)));
+  };
+
+  const endSheetDrag = () => {
+    dragRef.current = null;
+    window.removeEventListener('mousemove', moveSheetDrag);
+    window.removeEventListener('mouseup', endSheetDrag);
   };
 
   if (loading) {
@@ -389,8 +526,8 @@ export default function TripDetailPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
-      <div className={`absolute left-0 right-0 top-0 transition-all duration-300 ${mapExpanded ? 'bottom-0' : 'h-[220px]'}`}>
-        <TripMap posts={posts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} />
+      <div className="absolute inset-0">
+        <TripMap posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} />
       </div>
 
       {/* 상단 네비 */}
@@ -407,22 +544,33 @@ export default function TripDetailPage() {
             {mapExpanded ? '지도 줄이기' : '지도 펼치기'}
           </button>
           {isOwner && (
-            <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors">
-              <Pencil size={12} /> 수정/편집
-            </Link>
+            <>
+              <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors">
+                <Pencil size={12} /> 수정/편집
+              </Link>
+              <button onClick={handleDeleteTrip} className="flex items-center gap-1 bg-white text-red-500 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-red-50 transition-colors">
+                <Trash2 size={12} /> 삭제
+              </button>
+            </>
           )}
         </div>
       </div>
+      {message && (
+        <p className="absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-500 shadow">
+          {message}
+        </p>
+      )}
 
       {/* 하단 상세 패널 */}
-      {showDetail && (
-        <div
-          className={`absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden bg-white rounded-t-2xl shadow-2xl transition-all duration-300 ${
-            mapExpanded ? 'top-[48vh]' : 'top-[220px]'
-          }`}
-        >
+      <div
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        style={{ top: sheetTop }}
+      >
           {/* 드래그 핸들 */}
-          <div className="flex justify-between items-center px-5 pt-4 pb-2">
+          <div onMouseDown={startSheetDrag} className="flex cursor-grab justify-center px-5 pt-3 active:cursor-grabbing">
+            <span className="h-1.5 w-12 rounded-full bg-gray-300" />
+          </div>
+          <div className="flex justify-between items-center px-5 pt-3 pb-2">
             <div className="flex gap-3 items-start">
               <div className="w-20 h-20 overflow-hidden rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 flex-shrink-0">
                 {trip.thumbnailUrl && (
@@ -456,9 +604,6 @@ export default function TripDetailPage() {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <button onClick={() => setShowDetail(false)} className="text-gray-300 hover:text-gray-500">
-                <X size={18} />
-              </button>
               <button
                 onClick={handleLike}
                 className={`flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-full border transition-colors ${
@@ -491,18 +636,7 @@ export default function TripDetailPage() {
               ))
             )}
           </div>
-        </div>
-      )}
-
-      {/* 패널 닫혔을 때 열기 버튼 */}
-      {!showDetail && (
-        <button
-          onClick={() => setShowDetail(true)}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-white shadow-lg rounded-full px-5 py-2.5 text-sm font-semibold text-gray-700 flex items-center gap-1 hover:bg-gray-50 transition-colors"
-        >
-          여행 정보 보기 <ChevronRight size={14} />
-        </button>
-      )}
+      </div>
     </div>
   );
 }

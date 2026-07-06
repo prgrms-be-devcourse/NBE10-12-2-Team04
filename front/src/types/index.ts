@@ -32,6 +32,14 @@ export interface Trip {
   createdAt: string;
 }
 
+export interface TripImage {
+  id: string;
+  url: string;
+  thumbnailUrl: string;
+  filename: string;
+  postId?: string;
+}
+
 export interface Post {
   id: string;
   tripId: string;
@@ -54,6 +62,7 @@ export interface Marker {
   placeName: string;
   lat: number;
   lng: number;
+  representativeImageUrl?: string;
   visitTime?: string;
   source?: string;
 }

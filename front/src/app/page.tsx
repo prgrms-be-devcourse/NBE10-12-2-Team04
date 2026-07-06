@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import {
   Camera,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   X,
@@ -78,7 +77,27 @@ function getFeedClusterCellSize(zoom: number) {
   return 1;
 }
 
-function TripVisual({ trip, index, className = '' }: { trip?: Partial<Trip>; index: number; className?: string }) {
+function getTripMarkerIcon(trip: Partial<Trip>, selected = false) {
+  if (!trip.thumbnailUrl || typeof google === 'undefined') return undefined;
+
+  return {
+    url: trip.thumbnailUrl,
+    scaledSize: new google.maps.Size(selected ? 46 : 38, selected ? 46 : 38),
+    anchor: new google.maps.Point(selected ? 23 : 19, selected ? 46 : 38),
+  };
+}
+
+function TripVisual({
+  trip,
+  index,
+  className = '',
+  showMeta = true,
+}: {
+  trip?: Partial<Trip>;
+  index: number;
+  className?: string;
+  showMeta?: boolean;
+}) {
   const tone = fallbackPlaces[index % fallbackPlaces.length].tone;
 
   return (
@@ -88,7 +107,7 @@ function TripVisual({ trip, index, className = '' }: { trip?: Partial<Trip>; ind
       )}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.45),transparent_24%),linear-gradient(to_top,rgba(0,0,0,0.55),transparent_55%)]" />
       <div className="absolute bottom-0 left-0 right-0 h-12 bg-black/20" />
-      {trip && (
+      {trip && showMeta && (
         <div className="absolute bottom-3 left-3 right-3 text-white">
           <p className="text-sm font-bold truncate">{trip.city}, {trip.country}</p>
           <p className="mt-1 flex items-center gap-1 text-xs text-white/90">
@@ -100,7 +119,7 @@ function TripVisual({ trip, index, className = '' }: { trip?: Partial<Trip>; ind
   );
 }
 
-function DecorativeMapBand({ trips }: { trips: Trip[] }) {
+function DecorativeMapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: boolean }) {
   const [zoomedCluster, setZoomedCluster] = useState<string | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -166,7 +185,7 @@ function DecorativeMapBand({ trips }: { trips: Trip[] }) {
 
   return (
     <div
-      className={`relative overflow-hidden bg-[#dcefdc] transition-[height] duration-300 ${expanded ? 'h-[420px]' : 'h-[236px]'} ${dragStart ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`relative overflow-hidden bg-[#dcefdc] transition-[height] duration-300 ${fillHeight ? 'h-full' : expanded ? 'h-[420px]' : 'h-[236px]'} ${dragStart ? 'cursor-grabbing' : 'cursor-grab'}`}
       onMouseDown={startDrag}
       onMouseMove={moveDrag}
       onMouseUp={endDrag}
@@ -220,14 +239,16 @@ function DecorativeMapBand({ trips }: { trips: Trip[] }) {
       <div className="absolute left-6 top-5 z-20 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-500 shadow">
         마우스로 지도를 좌우로 이동
       </div>
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="absolute right-6 top-5 z-20 flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow hover:bg-white"
-      >
-        {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        {expanded ? '지도 접기' : '지도 펼치기'}
-      </button>
+      {!fillHeight && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="absolute right-6 top-5 z-20 flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow hover:bg-white"
+        >
+          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          {expanded ? '지도 접기' : '지도 펼치기'}
+        </button>
+      )}
       {zoomedCluster && (
         <button
           type="button"
@@ -263,12 +284,12 @@ function DecorativeMapBand({ trips }: { trips: Trip[] }) {
   );
 }
 
-function MapBand({ trips }: { trips: Trip[] }) {
+function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: boolean }) {
   const [zoomedCluster, setZoomedCluster] = useState<string | null>(null);
   const [focusedTrips, setFocusedTrips] = useState<Trip[] | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [mapZoom, setMapZoom] = useState(5);
+  const [mapZoom, setMapZoom] = useState(4);
   const mapRef = useRef<google.maps.Map | null>(null);
   const source = useMemo(() => trips.length ? uniqueTrips(trips) : fallbackPlaces.map((place, index) => ({
     id: `map-fallback-${index}`,
@@ -326,10 +347,10 @@ function MapBand({ trips }: { trips: Trip[] }) {
     source.forEach((trip, index) => bounds.extend(getTripLatLng(trip, index)));
     if (source.length === 1) {
       mapRef.current.setCenter(getTripLatLng(source[0], 0));
-      mapRef.current.setZoom(8);
+      mapRef.current.setZoom(6);
       return;
     }
-    mapRef.current.fitBounds(bounds, 48);
+    mapRef.current.fitBounds(bounds, 96);
   }, [isLoaded, source, zoomedCluster]);
 
   const selectCluster = (clusterKey: string) => {
@@ -347,15 +368,15 @@ function MapBand({ trips }: { trips: Trip[] }) {
     setZoomedCluster(null);
     setFocusedTrips(null);
     setSelectedTrip(null);
-    mapRef.current?.setZoom(5);
+    mapRef.current?.setZoom(4);
   };
 
   if (!googleMapsApiKey || loadError) {
-    return <DecorativeMapBand trips={trips} />;
+    return <DecorativeMapBand trips={trips} fillHeight={fillHeight} />;
   }
 
   return (
-    <div className={`relative overflow-hidden bg-[#dcefdc] transition-[height] duration-300 ${expanded ? 'h-[420px]' : 'h-[236px]'}`}>
+    <div className={`relative overflow-hidden bg-[#dcefdc] transition-[height] duration-300 ${fillHeight ? 'h-full' : expanded ? 'h-[420px]' : 'h-[236px]'}`}>
       {!isLoaded ? (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-100 via-sky-50 to-green-50">
           <p className="text-xs text-gray-400">지도를 불러오는 중...</p>
@@ -364,7 +385,7 @@ function MapBand({ trips }: { trips: Trip[] }) {
         <GoogleMap
           mapContainerStyle={feedMapContainerStyle}
           center={clusters[0]?.position ?? { lat: 37.5665, lng: 126.978 }}
-          zoom={5}
+          zoom={4}
           options={feedMapOptions}
           onZoomChanged={() => {
             const nextZoom = mapRef.current?.getZoom();
@@ -408,20 +429,23 @@ function MapBand({ trips }: { trips: Trip[] }) {
                 key={trip.id}
                 position={{ lat: base.lat + offset, lng: base.lng + offset }}
                 onClick={() => setSelectedTrip(trip)}
+                icon={getTripMarkerIcon(trip, selectedTrip?.id === trip.id)}
                 title={trip.title}
               />
             );
           })}
         </GoogleMap>
       )}
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="absolute right-6 top-5 z-20 flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow hover:bg-white"
-      >
-        {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        {expanded ? '지도 접기' : '지도 펼치기'}
-      </button>
+      {!fillHeight && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="absolute right-6 top-5 z-20 flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-600 shadow hover:bg-white"
+        >
+          {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          {expanded ? '지도 접기' : '지도 펼치기'}
+        </button>
+      )}
       {!showClusters && focusedTrips && (
         <button
           type="button"
@@ -496,8 +520,17 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
       <div ref={scrollRef} className="flex gap-5 overflow-x-auto pb-1 [scrollbar-width:none]">
         {items.map((trip, index) => (
           <Link key={trip.id} href={trip.id.startsWith('fallback') ? '#' : `/trips/${trip.id}`} className="group relative h-[168px] w-[250px] shrink-0 overflow-hidden rounded-lg shadow-sm">
-            <TripVisual trip={trip} index={index} className="h-full w-full transition-transform group-hover:scale-105" />
+            <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full transition-transform group-hover:scale-105" />
             <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">{index + 1}위</span>
+            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-10 text-white">
+              <p className="line-clamp-1 text-sm font-bold">{trip.title}</p>
+              <p className="mt-1 flex items-center justify-between gap-2 text-xs text-white/85">
+                <span className="truncate">{trip.city}, {trip.country}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <Heart size={12} fill="white" /> {trip.likeCount ?? 0}
+                </span>
+              </p>
+            </div>
           </Link>
         ))}
       </div>
@@ -505,8 +538,19 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
   );
 }
 
-function RecentTripsList({ trips, onLike }: { trips: Trip[]; onLike: (trip: Trip) => void }) {
-  const [expanded, setExpanded] = useState(false);
+function RecentTripsList({
+  trips,
+  onLike,
+  hasMore,
+  loadingMore,
+  sentinelRef,
+}: {
+  trips: Trip[];
+  onLike: (trip: Trip) => void;
+  hasMore: boolean;
+  loadingMore: boolean;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+}) {
   const fallback = fallbackPlaces.map((p, i) => ({
     id: `recent-${i}`,
     title: `${p.city}, ${p.country} 여행 일정 공유`,
@@ -521,7 +565,7 @@ function RecentTripsList({ trips, onLike }: { trips: Trip[]; onLike: (trip: Trip
     createdAt: '',
   } as Trip));
   const source = trips.length ? trips : fallback;
-  const visible = expanded ? source : source.slice(0, 4);
+  const visible = source;
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -532,7 +576,7 @@ function RecentTripsList({ trips, onLike }: { trips: Trip[]; onLike: (trip: Trip
         {visible.map((trip, index) => (
           <div key={trip.id} className="flex items-center gap-5 py-4 first:pt-0">
             <Link href={trip.id.startsWith('recent') ? '#' : `/trips/${trip.id}`} className="block h-[92px] w-[220px] shrink-0 overflow-hidden rounded-lg">
-              <TripVisual index={index} className="h-full w-full" />
+              <TripVisual trip={trip} index={index} className="h-full w-full" />
             </Link>
             <div className="min-w-0 flex-1">
               <Link href={trip.id.startsWith('recent') ? '#' : `/trips/${trip.id}`} className="line-clamp-1 text-base font-bold text-gray-900 hover:text-emerald-600">
@@ -553,10 +597,10 @@ function RecentTripsList({ trips, onLike }: { trips: Trip[]; onLike: (trip: Trip
           </div>
         ))}
       </div>
-      {source.length > 4 && (
-        <button onClick={() => setExpanded((v) => !v)} className="mx-auto mt-5 flex items-center gap-1 rounded-full border border-gray-200 px-8 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">
-          {expanded ? '접기' : '더보기'} <ChevronDown size={15} className={expanded ? 'rotate-180' : ''} />
-        </button>
+      {trips.length > 0 && (
+        <div ref={sentinelRef} className="flex min-h-10 items-center justify-center pt-4 text-sm text-gray-400">
+          {loadingMore ? '불러오는 중...' : hasMore ? null : '마지막 여행기입니다.'}
+        </div>
       )}
     </section>
   );
@@ -566,6 +610,13 @@ export default function HomePage() {
   const router = useRouter();
   const [topLiked, setTopLiked] = useState<Trip[]>([]);
   const [recent, setRecent] = useState<Trip[]>([]);
+  const [recentPage, setRecentPage] = useState(0);
+  const [recentHasMore, setRecentHasMore] = useState(true);
+  const [recentLoadingMore, setRecentLoadingMore] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(430);
+  const dragRef = useRef<{ y: number; height: number } | null>(null);
+  const sheetScrollRef = useRef<HTMLDivElement | null>(null);
+  const recentSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const attachLikedStatus = async (trips: Trip[]) => {
@@ -588,11 +639,14 @@ export default function HomePage() {
     async function loadFeeds() {
       const [topLikedTrips, recentTrips] = await Promise.all([
         feedApi.getTopLiked(),
-        feedApi.getRecent(),
+        feedApi.getRecent({ page: 0, size: 6 }),
       ]);
 
       setTopLiked(await attachLikedStatus(topLikedTrips as Trip[]));
-      setRecent(await attachLikedStatus(recentTrips as Trip[]));
+      const normalizedRecent = await attachLikedStatus(recentTrips as Trip[]);
+      setRecent(normalizedRecent);
+      setRecentHasMore(normalizedRecent.length >= 6);
+      setRecentPage(0);
     }
 
     loadFeeds().catch(() => {});
@@ -637,17 +691,102 @@ export default function HomePage() {
     router.push(isAuthenticated() ? '/trips?create=1' : '/auth/login');
   };
 
+  const loadMoreRecent = useCallback(async () => {
+    if (recentLoadingMore || !recentHasMore) return;
+    setRecentLoadingMore(true);
+    try {
+      const nextPage = recentPage + 1;
+      const nextTrips = await feedApi.getRecent({ page: nextPage, size: 6 }) as Trip[];
+      const withLiked = isAuthenticated()
+        ? await Promise.all(nextTrips.map(async (trip) => {
+            try {
+              const status = await likeApi.getMine(trip.id);
+              return { ...trip, liked: status.liked };
+            } catch {
+              return { ...trip, liked: false };
+            }
+          }))
+        : nextTrips.map((trip) => ({ ...trip, liked: false }));
+      setRecent((prev) => uniqueTrips([...prev, ...withLiked]));
+      setRecentPage(nextPage);
+      setRecentHasMore(nextTrips.length >= 6);
+    } finally {
+      setRecentLoadingMore(false);
+    }
+  }, [recentHasMore, recentLoadingMore, recentPage]);
+
+  useEffect(() => {
+    const root = sheetScrollRef.current;
+    const target = recentSentinelRef.current;
+    if (!root || !target || !recentHasMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadMoreRecent();
+        }
+      },
+      { root, rootMargin: '160px 0px 160px 0px', threshold: 0.01 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMoreRecent, recentHasMore]);
+
+  const startSheetDrag = (event: React.MouseEvent<HTMLDivElement>) => {
+    dragRef.current = { y: event.clientY, height: sheetHeight };
+    window.addEventListener('mousemove', moveSheetDrag);
+    window.addEventListener('mouseup', endSheetDrag);
+  };
+
+  const moveSheetDrag = (event: MouseEvent) => {
+    if (!dragRef.current) return;
+    const next = dragRef.current.height + dragRef.current.y - event.clientY;
+    setSheetHeight(Math.max(260, Math.min(window.innerHeight - 110, next)));
+  };
+
+  const endSheetDrag = () => {
+    dragRef.current = null;
+    window.removeEventListener('mousemove', moveSheetDrag);
+    window.removeEventListener('mouseup', endSheetDrag);
+  };
+
+  const mapBottomOffset = Math.max(180, sheetHeight - 18);
+
   return (
-    <div className="relative min-h-[calc(100vh-64px)] bg-gray-50">
-      <MapBand trips={uniqueTrips([...recent, ...topLiked])} />
-      <div className="mx-auto mt-6 flex max-w-[1180px] flex-col gap-5 px-8 pb-10">
+    <div className="relative h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
+      <div
+        className="absolute inset-x-0 top-0 transition-[bottom] duration-150"
+        style={{ bottom: mapBottomOffset }}
+      >
+        <MapBand trips={uniqueTrips([...recent, ...topLiked])} fillHeight />
+      </div>
+      <div
+        className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden rounded-t-2xl bg-gray-50 shadow-2xl"
+        style={{ height: sheetHeight }}
+      >
+        <div onMouseDown={startSheetDrag} className="flex cursor-grab justify-center px-8 py-3 active:cursor-grabbing">
+          <span className="h-1.5 w-12 rounded-full bg-gray-300" />
+        </div>
+      <div
+        ref={sheetScrollRef}
+        className="mx-auto flex max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 pb-10"
+        style={{ height: sheetHeight - 38 }}
+      >
         <div className="flex justify-end">
           <button onClick={handleCreateTrip} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700">
             <Plus size={18} /> 트립생성
           </button>
         </div>
         <TopLikedCarousel trips={topLiked} />
-        <RecentTripsList trips={recent} onLike={handleLike} />
+        <RecentTripsList
+          trips={recent}
+          onLike={handleLike}
+          hasMore={recentHasMore}
+          loadingMore={recentLoadingMore}
+          sentinelRef={recentSentinelRef}
+        />
+      </div>
       </div>
     </div>
   );

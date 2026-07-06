@@ -6,6 +6,11 @@ import { ArrowLeft, Camera, CheckCircle } from 'lucide-react';
 import { userApi } from '@/lib/api';
 import type { User } from '@/types';
 
+function formatDateOnly(value?: string) {
+  if (!value) return '—';
+  return value.slice(0, 10).replaceAll('-', '.');
+}
+
 export default function UserMePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -55,12 +60,12 @@ export default function UserMePage() {
         </span>
       ),
     },
-    { label: '가입 일시', value: user.createdAt },
-    { label: '회원 정보 수정 일시', value: user.updatedAt },
+    { label: '가입 일시', value: formatDateOnly(user.createdAt) },
+    { label: '회원 정보 수정 일시', value: formatDateOnly(user.updatedAt) },
   ];
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="mx-auto max-w-4xl p-8">
       <button
         onClick={() => router.back()}
         className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"

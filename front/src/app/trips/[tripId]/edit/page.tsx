@@ -9,7 +9,7 @@ import {
   MapPin, X, Upload, ImageIcon,
 } from 'lucide-react';
 import { tripApi, postApi, markerApi } from '@/lib/api';
-import type { Trip, Post, Marker } from '@/types';
+import type { Trip, Post, Marker, TripImage } from '@/types';
 
 type PlaceCandidate = {
   placeId: string;
@@ -43,6 +43,41 @@ function withDerivedPostTime(post: Post) {
   };
 }
 
+function getTripImagesFromPosts(posts: Post[]) {
+  const images = new Map<string, TripImage>();
+
+  posts.forEach((post) => {
+    post.images?.forEach((image) => {
+      if (!images.has(image.id)) {
+        images.set(image.id, {
+          id: image.id,
+          url: image.url,
+          thumbnailUrl: image.url,
+          filename: image.filename,
+          postId: post.id,
+        });
+      }
+    });
+  });
+
+  return Array.from(images.values());
+}
+
+function toTripImage(image: Post['images'][number], postId?: string): TripImage {
+  return {
+    id: image.id,
+    url: image.url,
+    thumbnailUrl: image.url,
+    filename: image.filename,
+    postId,
+  };
+}
+
+type ToastState = {
+  message: string;
+  tone: 'success' | 'error';
+};
+
 // ────────────────────────────────────────────────────────────────────
 // 컬럼 1: Post 목록
 // ────────────────────────────────────────────────────────────────────
@@ -51,11 +86,13 @@ function PostList({
   selectedId,
   onSelect,
   onDelete,
+  onCreate,
 }: {
   posts: Post[];
   selectedId: string | null;
   onSelect: (p: Post) => void;
   onDelete: (id: string) => void;
+  onCreate: () => void;
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -64,8 +101,7 @@ function PostList({
           <span className="w-5 h-5 rounded-full bg-green-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
           Post 목록
         </h3>
-        {/* TODO: Post 직접 추가 API 확인 필요 */}
-        <button className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
+        <button onClick={onCreate} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
           <Plus size={13} /> 새 Post 추가
         </button>
       </div>
@@ -127,10 +163,12 @@ function PostEditor({
   tripId,
   post,
   onChange,
+  onToast,
 }: {
   tripId: string;
   post: Post;
   onChange: (updated: Post) => void;
+  onToast: (message: string, tone?: ToastState['tone']) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -151,9 +189,9 @@ function PostEditor({
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      alert('Post가 저장되었습니다.');
+      onToast('Post가 저장되었습니다.');
     } catch {
-      alert('저장에 실패했습니다.');
+      onToast('저장에 실패했습니다.', 'error');
     } finally {
       setSaving(false);
     }
@@ -163,9 +201,9 @@ function PostEditor({
     try {
       await postApi.deleteImage(tripId, post.id, imageId);
       onChange({ ...post, images: images.filter((img) => img.id !== imageId) });
-      alert('이미지가 삭제되었습니다.');
+      onToast('이미지가 삭제되었습니다.');
     } catch {
-      alert('이미지 삭제에 실패했습니다.');
+      onToast('이미지 삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -177,9 +215,9 @@ function PostEditor({
     try {
       const res = await postApi.addImages(tripId, post.id, fd) as { images: Post['images'] };
       onChange({ ...post, images: [...images, ...(res.images ?? [])] });
-      alert('이미지가 추가되었습니다.');
+      onToast('이미지가 추가되었습니다.');
     } catch {
-      alert('이미지 업로드에 실패했습니다.');
+      onToast('이미지 업로드에 실패했습니다.', 'error');
     }
   };
 
@@ -201,7 +239,7 @@ function PostEditor({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">날짜</label>
@@ -241,7 +279,7 @@ function PostEditor({
             value={content}
             onChange={(e) => set('content', e.target.value)}
             maxLength={1000}
-            rows={5}
+            rows={4}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500 resize-none"
           />
         </div>
@@ -294,9 +332,11 @@ function PostEditor({
 function MarkerEditor({
   post,
   onMarkerUpdated,
+  onToast,
 }: {
   post: Post;
   onMarkerUpdated: (marker: Marker) => void;
+  onToast: (message: string, tone?: ToastState['tone']) => void;
 }) {
   const [marker, setMarker] = useState<Marker | null>(post.marker ?? null);
   const [saving, setSaving] = useState(false);
@@ -312,19 +352,12 @@ function MarkerEditor({
     ? { lat: Number(marker.lat), lng: Number(marker.lng) }
     : null;
 
-  useEffect(() => {
-    setMarker(post.marker ?? null);
-    setCandidatesOpen(false);
-    setCandidates([]);
-    setCandidatesError('');
-  }, [post.id, post.marker]);
-
-  const setM = (k: keyof Marker, v: unknown) => setMarker((m) => {
-    if (!m) return m;
-    const nextMarker = { ...m, [k]: v };
+  const setM = (k: keyof Marker, v: unknown) => {
+    if (!marker) return;
+    const nextMarker = { ...marker, [k]: v };
+    setMarker(nextMarker);
     onMarkerUpdated(nextMarker);
-    return nextMarker;
-  });
+  };
 
   const loadCandidates = async () => {
     if (!marker) return;
@@ -381,9 +414,9 @@ function MarkerEditor({
       const nextMarker = (updatedMarker ?? marker) as Marker;
       setMarker(nextMarker);
       onMarkerUpdated(nextMarker);
-      alert('마커가 수정되었습니다.');
+      onToast('마커가 수정되었습니다.');
     } catch (error) {
-      alert(error instanceof Error ? error.message : '마커 저장에 실패했습니다.');
+      onToast(error instanceof Error ? error.message : '마커 저장에 실패했습니다.', 'error');
     } finally {
       setSaving(false);
     }
@@ -394,9 +427,9 @@ function MarkerEditor({
     try {
       await markerApi.delete(post.id, marker.id);
       setMarker(null);
-      alert('마커가 삭제되었습니다.');
+      onToast('마커가 삭제되었습니다.');
     } catch {
-      alert('마커 삭제에 실패했습니다.');
+      onToast('마커 삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -409,8 +442,8 @@ function MarkerEditor({
         </h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-        <div className="relative h-[150px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 to-green-50">
+      <div className="flex-1 overflow-y-auto p-3 pl-4 flex flex-col gap-3">
+        <div className="relative h-[320px] min-h-[260px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 to-green-50">
           {googleMapsApiKey && !loadError && isLoaded && markerPosition ? (
             <GoogleMap
               mapContainerStyle={markerMapContainerStyle}
@@ -562,19 +595,49 @@ export default function TripEditPage() {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [tripImages, setTripImages] = useState<TripImage[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [saving, setSaving] = useState(false);
+  const [representativeSaving, setRepresentativeSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [markerPanelWidth, setMarkerPanelWidth] = useState(380);
+  const markerResizeRef = useRef<{ x: number; width: number } | null>(null);
 
   // Trip 기본 정보 편집 상태
   const [tripForm, setTripForm] = useState({
     title: '', country: '', city: '', startDate: '', endDate: '', isPublic: true,
   });
 
+  const showToast = (message: string, tone: ToastState['tone'] = 'success') => {
+    setToast({ message, tone });
+    window.setTimeout(() => setToast(null), 2400);
+  };
+
+  const startMarkerPanelResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    markerResizeRef.current = { x: event.clientX, width: markerPanelWidth };
+    window.addEventListener('mousemove', moveMarkerPanelResize);
+    window.addEventListener('mouseup', endMarkerPanelResize);
+  };
+
+  const moveMarkerPanelResize = (event: MouseEvent) => {
+    if (!markerResizeRef.current) return;
+    const nextWidth = markerResizeRef.current.width + markerResizeRef.current.x - event.clientX;
+    setMarkerPanelWidth(Math.max(300, Math.min(560, nextWidth)));
+  };
+
+  const endMarkerPanelResize = () => {
+    markerResizeRef.current = null;
+    window.removeEventListener('mousemove', moveMarkerPanelResize);
+    window.removeEventListener('mouseup', endMarkerPanelResize);
+  };
+
   useEffect(() => {
-    Promise.all([tripApi.getOne(tripId), postApi.getList(tripId)])
-      .then(([t, p]) => {
+    Promise.all([tripApi.getOne(tripId), postApi.getList(tripId), tripApi.getImages(tripId).catch(() => [])])
+      .then(([t, p, images]) => {
         const tripData = t as Trip;
+        const postData = (p as Post[]).map(withDerivedPostTime);
+        const loadedImages = images as TripImage[];
         setTrip(tripData);
         setTripForm({
           title: tripData.title,
@@ -584,7 +647,7 @@ export default function TripEditPage() {
           endDate: tripData.endDate,
           isPublic: tripData.isPublic,
         });
-        const postData = (p as Post[]).map(withDerivedPostTime);
+        setTripImages(loadedImages.length ? loadedImages : getTripImagesFromPosts(postData));
         setPosts(postData);
         if (postData.length) setSelectedPost(postData[0]);
       })
@@ -613,10 +676,10 @@ export default function TripEditPage() {
           })),
       ]);
       await tripApi.update(tripId, tripForm);
-      alert('Trip, Post, Marker 정보가 모두 저장되었습니다.');
+      showToast('Trip, Post, Marker 정보가 모두 저장되었습니다.');
       return true;
     } catch (error) {
-      alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+      showToast(error instanceof Error ? error.message : '저장에 실패했습니다.', 'error');
       return false;
     } finally {
       setSaving(false);
@@ -625,13 +688,60 @@ export default function TripEditPage() {
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm('이 Post를 삭제하시겠습니까?')) return;
+    const deletedPost = posts.find((post) => post.id === postId);
     try {
       await postApi.delete(tripId, postId);
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      if (selectedPost?.id === postId) setSelectedPost(null);
-      alert('Post가 삭제되었습니다.');
+      const nextPosts = posts.filter((post) => post.id !== postId);
+      setPosts(nextPosts);
+      if (selectedPost?.id === postId) setSelectedPost(nextPosts[0] ?? null);
+      setTripImages((prev) => prev.map((image) => (
+        deletedPost?.images.some((postImage) => postImage.id === image.id)
+          ? { ...image, postId: undefined }
+          : image
+      )));
+      showToast('Post가 삭제되었습니다.');
     } catch {
-      alert('삭제에 실패했습니다.');
+      showToast('삭제에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleCreatePost = async () => {
+    const today = tripForm.startDate || new Date().toISOString().slice(0, 10);
+    try {
+      const created = await postApi.create(tripId, {
+        title: '새 Post',
+        content: '',
+        date: today,
+      }) as Post;
+      const nextPost = withDerivedPostTime(created);
+      setPosts((prev) => [nextPost, ...prev]);
+      setSelectedPost(nextPost);
+      showToast('새 Post가 생성되었습니다.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Post 생성에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleRepresentativeImageChange = async (imageId: string) => {
+    setRepresentativeSaving(true);
+    try {
+      const updatedTrip = await tripApi.updateRepresentativeImage(tripId, imageId) as Trip;
+      setTrip(updatedTrip);
+      showToast('대표이미지가 변경되었습니다.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '대표이미지 변경에 실패했습니다.', 'error');
+    } finally {
+      setRepresentativeSaving(false);
+    }
+  };
+
+  const handleDeleteTrip = async () => {
+    if (!confirm('이 Trip을 삭제하시겠습니까?')) return;
+    try {
+      await tripApi.delete(tripId);
+      router.push('/trips');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Trip 삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -652,6 +762,14 @@ export default function TripEditPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]">
+      {toast && (
+        <div className={`fixed right-6 top-20 z-50 rounded-lg px-4 py-2 text-sm font-semibold shadow-lg ${
+          toast.tone === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 ring-1 ring-red-100'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       {/* 상단 바 */}
       <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
         <div>
@@ -665,6 +783,12 @@ export default function TripEditPage() {
           >
             <Eye size={14} /> 미리보기
           </Link>
+          <button
+            onClick={handleDeleteTrip}
+            className="flex items-center gap-1 text-sm text-red-500 border border-red-100 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <Trash2 size={14} /> 삭제
+          </button>
           <button
             onClick={handlePublish}
             disabled={saving}
@@ -694,6 +818,42 @@ export default function TripEditPage() {
             </p>
           </div>
         </div>
+        <div className="relative">
+          <select
+            value={tripImages.find((image) => image.thumbnailUrl === trip?.thumbnailUrl || image.url === trip?.thumbnailUrl)?.id ?? ''}
+            onChange={(event) => {
+              if (event.target.value) void handleRepresentativeImageChange(event.target.value);
+            }}
+            disabled={representativeSaving || tripImages.length === 0}
+            className="max-w-[180px] rounded-lg border border-gray-200 bg-white px-3 py-1.5 pr-7 text-sm outline-none focus:border-green-500 disabled:opacity-60"
+          >
+            <option value="">{tripImages.length ? '대표이미지 선택' : '이미지 없음'}</option>
+            {tripImages.map((image) => (
+              <option key={image.id} value={image.id}>
+                {image.postId ? `Post 이미지 ${image.id}` : `미연결 이미지 ${image.id}`}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+        {tripImages.length > 0 && (
+          <div className="flex max-w-[220px] gap-1 overflow-x-auto">
+            {tripImages.slice(0, 8).map((image) => (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() => handleRepresentativeImageChange(image.id)}
+                disabled={representativeSaving}
+                className={`h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border-2 bg-gray-100 ${
+                  image.thumbnailUrl === trip?.thumbnailUrl || image.url === trip?.thumbnailUrl ? 'border-green-600' : 'border-white'
+                }`}
+                title={image.postId ? 'Post 이미지' : '미연결 이미지'}
+              >
+                <img src={image.thumbnailUrl || image.url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
         <input
           value={tripForm.title}
           onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })}
@@ -763,6 +923,7 @@ export default function TripEditPage() {
             selectedId={selectedPost?.id ?? null}
             onSelect={(post) => setSelectedPost(withDerivedPostTime(post))}
             onDelete={handleDeletePost}
+            onCreate={handleCreatePost}
           />
         </div>
 
@@ -772,10 +933,27 @@ export default function TripEditPage() {
             <PostEditor
               tripId={tripId}
               post={selectedPost}
+              onToast={showToast}
               onChange={(updated) => {
                 const nextPost = withDerivedPostTime(updated);
                 setSelectedPost(nextPost);
                 setPosts((prev) => prev.map((p) => (p.id === nextPost.id ? nextPost : p)));
+                setTripImages((prev) => {
+                  const nextImages = new Map(prev.map((image) => [image.id, image]));
+                  nextPost.images?.forEach((image) => {
+                    nextImages.set(image.id, toTripImage(image, nextPost.id));
+                  });
+
+                  prev.forEach((image) => {
+                    const wasLinkedToPost = image.postId === nextPost.id;
+                    const stillLinkedToPost = nextPost.images?.some((postImage) => postImage.id === image.id);
+                    if (wasLinkedToPost && !stillLinkedToPost) {
+                      nextImages.set(image.id, { ...image, postId: undefined });
+                    }
+                  });
+
+                  return Array.from(nextImages.values());
+                });
               }}
             />
           ) : (
@@ -786,10 +964,22 @@ export default function TripEditPage() {
         </div>
 
         {/* 컬럼 3 - Marker 편집 */}
-        <div className="w-[280px] bg-white flex-shrink-0 overflow-hidden">
+        <div
+          className="relative bg-white flex-shrink-0 overflow-hidden"
+          style={{ width: markerPanelWidth }}
+        >
+          <div
+            onMouseDown={startMarkerPanelResize}
+            className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-green-100"
+            title="마커 편집 패널 크기 조절"
+          >
+            <span className="absolute left-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-full bg-gray-200" />
+          </div>
           {selectedPost ? (
             <MarkerEditor
+              key={selectedPost.id}
               post={selectedPost}
+              onToast={showToast}
               onMarkerUpdated={(marker) => {
                 setSelectedPost((p) => (p ? withDerivedPostTime({ ...p, marker }) : p));
                 setPosts((prev) => prev.map((p) => (
