@@ -1,5 +1,10 @@
 package com.triptrace.domain.image.image.service;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.triptrace.domain.image.image.catalog.ImageExceptionCatalog;
 import com.triptrace.domain.image.image.dto.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
@@ -28,26 +33,27 @@ public class ImageService {
         image = imageRepository.save(image);
         return ImageFactory.createImageServiceResponse(image);
     }
+
     @Transactional
     public ImageServiceResponse delete(Image image) {
-        //외부 접근 제외
         ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
         imageRepository.delete(image);
         return response;
     }
+
     @Transactional
     public ImageServiceResponse modifyPost(Member owner, Trip trip, Post post, Long imageId) {
         Image image = getById(imageId);
-        if( ! validateOwner(owner, image)){
+        if (!validateOwner(owner, image)) {
             throw ImageExceptionCatalog.forbidden();
         }
-        if( ! validateTrip(trip, image)) {
+        if (!validateTrip(trip, image)) {
             throw ImageExceptionCatalog.invalid("해당 여행기의 이미지가 아닙니다.");
         }
         image.modifyPost(post);
-        image = imageRepository.save(image);
         return ImageFactory.createImageServiceResponse(image);
     }
+
     @Transactional
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, Long id) {
         Image image = getById(id);
@@ -55,15 +61,10 @@ public class ImageService {
         disconnectRepresentativeReferences(image.getId());
         return delete(image);
     }
+
     @Transactional
-    public ImageServiceResponse delete(Member owner, Trip trip, Long imageId) {
-        Image image = getById(imageId);
-        if( ! validateOwner(owner, image)){
-            throw ImageExceptionCatalog.forbidden();
-        }
-        if( ! validateTrip(trip, image)) {
-            throw ImageExceptionCatalog.invalid("해당 여행기의 이미지가 아닙니다.");
-        }
+    public ImageServiceResponse delete(Member owner, Trip trip, Long id) {
+        Image image = getById(id);
         validate(owner, trip, null, image);
         return delete(image);
     }
@@ -86,8 +87,8 @@ public class ImageService {
 
     @Transactional(readOnly = true)
     public Image getById(Long id) {
-        Image image = imageRepository.findById(id).orElseThrow(
-            ImageExceptionCatalog::notFound);
+        Image image = imageRepository.findById(id)
+            .orElseThrow(ImageExceptionCatalog::notFound);
         return image;
     }
 
@@ -99,7 +100,7 @@ public class ImageService {
     }
 
     @Transactional(readOnly = true)
-    public ImageServiceResponse findById(Long id){
+    public ImageServiceResponse findById(Long id) {
         Image image = getById(id);
         return ImageFactory.createImageServiceResponse(image);
     }
@@ -123,37 +124,37 @@ public class ImageService {
         return image.stream().map(ImageFactory::createImageServiceResponse).toList();
     }
 
-
     private void validate(Member owner, Trip trip, Post post, Image image) {
-        if( ! validateOwner(owner,image)){
+        if (!validateOwner(owner, image)) {
             throw ImageExceptionCatalog.forbidden();
         }
-        if( ! validateTrip(trip,image)){
+        if (!validateTrip(trip, image)) {
             throw ImageExceptionCatalog.invalid("해당 여행기의 이미지가 아닙니다.");
         }
-        if( ! validatePost(post,image)){
-            throw ImageExceptionCatalog.forbidden("해당 게시글의 이미지가 아닙니다.");
+        if (!validatePost(post, image)) {
+            throw ImageExceptionCatalog.invalid("해당 게시글의 이미지가 아닙니다.");
         }
     }
 
-    private boolean validateOwner(Member owner, Image image){
-        if(owner.getId().equals(image.getOwner().getId())){
+    private boolean validateOwner(Member owner, Image image) {
+        if (owner.getId().equals(image.getOwner().getId())) {
             return true;
         }
         return false;
     }
 
-    private boolean validateTrip(Trip trip, Image image){
-        if(trip.getId().equals(image.getTrip().getId())){
+    private boolean validateTrip(Trip trip, Image image) {
+        if (trip.getId().equals(image.getTrip().getId())) {
             return true;
         }
         return false;
     }
-    private boolean validatePost(Post post, Image image){
-        if(post == null){
+
+    private boolean validatePost(Post post, Image image) {
+        if (post == null) {
             return true;
         }
-        if(image.getPost() == null){
+        if (image.getPost() == null) {
             return false;
         }
         return post.getId().equals(image.getPost().getId());

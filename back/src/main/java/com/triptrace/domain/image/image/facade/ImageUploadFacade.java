@@ -58,6 +58,7 @@ public class ImageUploadFacade {
     private ImageUploadResponse upload(Member owner, Trip trip, MultipartFile imageFile) {
         return upload(owner, trip, null, imageFile);
     }
+
     private ImageUploadResponse upload(Member owner, Trip trip, Post post, MultipartFile imageFile) {
         //예외 반환 안 함
         //uploadImages의 부속 메서드 10개 중 2개 실패한다더라도 8개는 저장해야함
