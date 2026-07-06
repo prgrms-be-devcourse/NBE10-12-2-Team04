@@ -1,5 +1,8 @@
 package com.triptrace.domain.trip.trip.controller;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
@@ -19,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -42,6 +44,9 @@ class ApiV1TripControllerTest {
 
     @Autowired
     private TripRepository tripRepository;
+
+    @Autowired
+    private ImageRepository imageRepository;
 
     @Test
     @WithMockUser
@@ -192,6 +197,29 @@ class ApiV1TripControllerTest {
         assertThat(tripRepository.existsById(trip.getId())).isTrue();
     }
 
+    @Test
+    @WithMockUser
+    @DisplayName("여행기 대표이미지 변경 API")
+    void changeRepresentativeImage() throws Exception {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner, "대표이미지 변경 여행기");
+        Image image = createImage(owner, trip, "representative.jpg");
+
+        mvc.perform(patch("/api/v1/trips/{tripId}/representative-image", trip.getId())
+                .with(csrf())
+                .with(authentication(auth(owner)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "imageId": %d
+                    }
+                    """.formatted(image.getId())))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.resultCode").value("200-1"))
+            .andExpect(jsonPath("$.data.thumbnailUrl").value("/images/thumbnail/representative.jpg"));
+    }
+
     private Member createMember(String username) {
         return memberRepository.save(new Member(
             "%s@test.com".formatted(username),
@@ -215,6 +243,19 @@ class ApiV1TripControllerTest {
             LocalDateTime.of(2026, 1, 1, 0, 0),
             LocalDateTime.of(2026, 1, 5, 0, 0),
             visibility
+        ));
+    }
+
+    private Image createImage(Member owner, Trip trip, String fileName) {
+        return imageRepository.save(new Image(
+            owner,
+            trip,
+            null,
+            "/images/serving/%s".formatted(fileName),
+            "/images/thumbnail/%s".formatted(fileName),
+            1024L,
+            "image/jpeg",
+            UploadStatus.STORED
         ));
     }
 

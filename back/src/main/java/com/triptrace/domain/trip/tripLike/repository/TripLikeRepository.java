@@ -14,5 +14,7 @@ public interface TripLikeRepository extends JpaRepository<TripLike, Long> {
 
     long countByTripId(Long tripId);
 
+    void deleteByTripId(Long tripId);
+
     Long member(Member member);
 }

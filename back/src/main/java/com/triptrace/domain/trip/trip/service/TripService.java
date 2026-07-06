@@ -1,14 +1,22 @@
 package com.triptrace.domain.trip.trip.service;
 
+import com.triptrace.domain.image.image.entity.Image;
+import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.repository.MemberRepository;
+import com.triptrace.domain.post.post.entity.Post;
+import com.triptrace.domain.post.post.repository.PostRepository;
 import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
 import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
+import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +27,10 @@ import java.util.List;
 public class TripService {
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
+    private final ImageRepository imageRepository;
+    private final PostRepository postRepository;
+    private final MarkerRepository markerRepository;
+    private final TripLikeRepository tripLikeRepository;
 
     @Transactional
     public TripResponse create(Long ownerId, TripCreateRequest request) {
@@ -43,6 +55,12 @@ public class TripService {
             .stream()
             .map(this::toResponse)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TripResponse> findTripsByOwnerId(Long ownerId, Pageable pageable) {
+        return tripRepository.findByOwnerIdOrderByCreatedAtDescIdDesc(ownerId, pageable)
+            .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -92,8 +110,36 @@ public class TripService {
     @Transactional
     public void deleteTrip(Long tripId, Long ownerId) {
         Trip trip = findOwnedTrip(tripId, ownerId);
+        List<Post> posts = postRepository.findByTripId(tripId);
+        List<Long> postIds = posts.stream()
+            .map(Post::getId)
+            .toList();
 
+        trip.changeRepresentativeImage(null);
+
+        if (!postIds.isEmpty()) {
+            markerRepository.deleteAll(markerRepository.findByPostIdIn(postIds));
+        }
+
+        tripLikeRepository.deleteByTripId(tripId);
+        imageRepository.deleteAll(imageRepository.findByTripId(tripId));
+        postRepository.deleteAll(posts);
         tripRepository.delete(trip);
+    }
+
+    @Transactional
+    public TripResponse changeRepresentativeImage(Long tripId, Long ownerId, Long imageId) {
+        Trip trip = findOwnedTrip(tripId, ownerId);
+        Image image = imageRepository.findById(imageId)
+            .orElseThrow(() -> new ServiceException("404-1", "이미지를 찾을 수 없습니다."));
+
+        if (!image.getTrip().getId().equals(trip.getId()) || !image.getOwner().getId().equals(ownerId)) {
+            throw new ServiceException("403-1", "이미지에 대한 권한이 없습니다.");
+        }
+
+        trip.changeRepresentativeImage(image);
+
+        return toResponse(trip);
     }
 
     // 공개여행기 중 좋아요 수 상위 10개 조회 메서드 추가
@@ -114,6 +160,12 @@ public class TripService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<TripResponse> findPublicTripsByCreatedAtDesc(Pageable pageable) {
+        return tripRepository.findByVisibilityTrueOrderByCreatedAtDescIdDesc(pageable)
+            .map(this::toResponse);
+    }
+
     private TripResponse toResponse(Trip trip) {
         return new TripResponse(trip);
     }
@@ -124,4 +176,3 @@ public class TripService {
         }
     }
 }
-

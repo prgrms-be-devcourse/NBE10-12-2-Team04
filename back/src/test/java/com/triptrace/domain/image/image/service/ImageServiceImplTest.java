@@ -4,6 +4,9 @@ import com.triptrace.domain.image.image.dto.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.entity.UploadStatus;
 import com.triptrace.domain.image.image.repository.ImageRepository;
+import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.entity.MarkerSource;
+import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
@@ -39,6 +42,8 @@ class ImageServiceImplTest {
     private TripRepository tripRepository;
     @Autowired
     private PostRepository postRepository;
+    @Autowired
+    private MarkerRepository markerRepository;
 
     private Member createMember(String username) {
         return memberRepository.save(new Member(
@@ -132,6 +137,31 @@ class ImageServiceImplTest {
         imageService.delete(owner, trip, post, image.getOriginalFileUrl());
 
         assertThat(imageRepository.findById(image.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대표이미지로 사용 중인 이미지도 참조를 해제한 뒤 삭제할 수 있다")
+    void deleteRepresentativeImage() {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner);
+        Post post = createPost(trip);
+        Image image = createImage(owner, trip, post);
+        Marker marker = markerRepository.save(new Marker(
+            post,
+            java.math.BigDecimal.valueOf(35.0116363),
+            java.math.BigDecimal.valueOf(135.7680294),
+            "교토역",
+            LocalDateTime.of(2024, 4, 1, 12, 0),
+            MarkerSource.AUTO,
+            image
+        ));
+        trip.changeRepresentativeImage(image);
+
+        imageService.delete(owner, trip, post, image.getId());
+
+        assertThat(imageRepository.findById(image.getId())).isEmpty();
+        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getRepresentativeImage()).isNull();
+        assertThat(markerRepository.findById(marker.getId()).orElseThrow().getRepresentativeImage()).isNull();
     }
 
     @Test
