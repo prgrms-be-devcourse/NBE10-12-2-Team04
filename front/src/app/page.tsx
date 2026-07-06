@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
@@ -691,7 +691,7 @@ export default function HomePage() {
     router.push(isAuthenticated() ? '/trips?create=1' : '/auth/login');
   };
 
-  const loadMoreRecent = async () => {
+  const loadMoreRecent = useCallback(async () => {
     if (recentLoadingMore || !recentHasMore) return;
     setRecentLoadingMore(true);
     try {
@@ -713,7 +713,7 @@ export default function HomePage() {
     } finally {
       setRecentLoadingMore(false);
     }
-  };
+  }, [recentHasMore, recentLoadingMore, recentPage]);
 
   useEffect(() => {
     const root = sheetScrollRef.current;
@@ -731,7 +731,7 @@ export default function HomePage() {
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [recentHasMore, recentLoadingMore, recentPage, recent.length]);
+  }, [loadMoreRecent, recentHasMore]);
 
   const startSheetDrag = (event: React.MouseEvent<HTMLDivElement>) => {
     dragRef.current = { y: event.clientY, height: sheetHeight };

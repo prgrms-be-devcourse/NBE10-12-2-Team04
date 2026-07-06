@@ -681,7 +681,8 @@ export default function TripsPage() {
   const shouldShowCreateModal = showModal || (mounted && shouldOpenFromQuery && isAuthenticated());
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
