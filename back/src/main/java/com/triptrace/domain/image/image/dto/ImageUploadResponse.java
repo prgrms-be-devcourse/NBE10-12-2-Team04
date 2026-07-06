@@ -9,6 +9,7 @@ public record ImageUploadResponse(
     String originalFileUrl,
     String thumbnailUrl,
     String mimeType,
-    UploadStatus uploadStatus
+    UploadStatus uploadStatus,
+    String message //성공시 SUCCESS
 ) {
 }

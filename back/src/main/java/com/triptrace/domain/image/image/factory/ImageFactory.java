@@ -57,9 +57,9 @@ public class ImageFactory {
             savedFileInfo.size(),
             savedFileInfo.mimeType());
     }
-    public static ImageUploadResponse createImageUploadResponse(String fileName, ImageServiceResponse imageServiceResponse) {
+    public static ImageUploadResponse createImageUploadResponse(String fileName, ImageServiceResponse imageServiceResponse, String message) {
         if(imageServiceResponse == null){
-            return new ImageUploadResponse(fileName,null,null,null,null,UploadStatus.FAILED);
+            return new ImageUploadResponse(fileName,null,null,null,null, UploadStatus.FAILED, message);
         }
         return new ImageUploadResponse(
             fileName,
@@ -67,8 +67,12 @@ public class ImageFactory {
             imageServiceResponse.originalFileUrl(),
             imageServiceResponse.thumbnailUrl(),
             imageServiceResponse.mimeType(),
-            imageServiceResponse.uploadStatus()
+            imageServiceResponse.uploadStatus(),
+            "SUCCESS"
         );
+    }
+    public static ImageUploadResponse createImageUploadResponse(String fileName, ImageServiceResponse imageServiceResponse) {
+        return createImageUploadResponse(fileName, imageServiceResponse, "ERROR");
     }
 
     public static Image createImage(Member owner, Trip trip, Post post, ImageInfo imageInfo, ImageFileRequest imageFileRequest) {
