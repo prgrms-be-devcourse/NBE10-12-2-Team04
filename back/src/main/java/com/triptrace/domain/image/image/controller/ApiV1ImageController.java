@@ -32,6 +32,19 @@ public class ApiV1ImageController {
             imageProcessFacade.uploadImages(ownerId,tripId, images)
         );
     }
+    @PostMapping("/trips/{tripId}/posts/{postId}/images")
+    public RsData<List<ImageUploadResponse>> upload(
+        @AuthenticationPrincipal  Long ownerId,
+        @PathVariable Long tripId,
+        @PathVariable Long postId,
+        @RequestParam MultipartFile[] images
+    ){
+        return new RsData<>(
+            "200-1",
+            "업로드 되었습니다.",
+            imageProcessFacade.uploadImages(ownerId, tripId, postId, images)
+        );
+    }
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images/{imageId}")
     public RsData<?> delete(
         @AuthenticationPrincipal  Long ownerId,
@@ -40,6 +53,20 @@ public class ApiV1ImageController {
         @PathVariable Long imageId
     ){
         imageDeleteFacade.deleteById(ownerId,tripId,postId, imageId);
+        return new RsData<>(
+            "200-1",
+            "삭제 되었습니다.",
+            null
+        );
+    }
+
+    @DeleteMapping("/trips/{tripId}/images/{imageId}")
+    public RsData<?> delete(
+        @AuthenticationPrincipal  Long ownerId,
+        @PathVariable Long tripId,
+        @PathVariable Long imageId
+    ){
+        imageDeleteFacade.deleteById(ownerId,tripId, imageId);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",

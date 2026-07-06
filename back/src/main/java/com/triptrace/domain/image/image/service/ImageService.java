@@ -55,6 +55,18 @@ public class ImageService {
         disconnectRepresentativeReferences(image.getId());
         return delete(image);
     }
+    @Transactional
+    public ImageServiceResponse delete(Member owner, Trip trip, Long imageId) {
+        Image image = getById(imageId);
+        if( ! validateOwner(owner, image)){
+            throw ImageExceptionCatalog.forbidden();
+        }
+        if( ! validateTrip(trip, image)) {
+            throw ImageExceptionCatalog.invalid("해당 여행기의 이미지가 아닙니다.");
+        }
+        validate(owner, trip, null, image);
+        return delete(image);
+    }
 
     @Transactional
     public ImageServiceResponse delete(Member owner, Trip trip, Post post, String imageUrl) {
@@ -64,6 +76,7 @@ public class ImageService {
         return delete(image);
     }
 
+
     private void disconnectRepresentativeReferences(Long imageId) {
         tripRepository.findByRepresentativeImageId(imageId)
             .forEach(trip -> trip.changeRepresentativeImage(null));
@@ -71,14 +84,15 @@ public class ImageService {
             .forEach(marker -> marker.changeRepresentativeImage(null));
     }
 
-    private Image getById(Long id) {
+    @Transactional(readOnly = true)
+    public Image getById(Long id) {
         Image image = imageRepository.findById(id).orElseThrow(
             ImageExceptionCatalog::notFound);
         return image;
     }
 
-
-    private Image getByUrl(String originalFileUrl) {
+    @Transactional(readOnly = true)
+    public Image getByUrl(String originalFileUrl) {
         Image image = imageRepository.findByOriginalFileUrl(originalFileUrl)
             .orElseThrow(ImageExceptionCatalog::notFound);
         return image;
