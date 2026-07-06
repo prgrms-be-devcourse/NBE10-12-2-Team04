@@ -45,6 +45,12 @@ public class GoogleReverseGeocodingClient implements ReverseGeocodingClient {
 
     @Override
     public String findPlaceName(BigDecimal latitude, BigDecimal longitude) {
+        ReverseGeocodingResult location = findLocation(latitude, longitude);
+        return location == null ? null : location.placeName();
+    }
+
+    @Override
+    public ReverseGeocodingResult findLocation(BigDecimal latitude, BigDecimal longitude) {
         if (!StringUtils.hasText(apiKey) || latitude == null || longitude == null) {
             return null;
         }
@@ -61,14 +67,14 @@ public class GoogleReverseGeocodingClient implements ReverseGeocodingClient {
                 .retrieve()
                 .body(JsonNode.class);
 
-            return extractPlaceName(response);
+            return extractLocation(response);
         } catch (RestClientException e) {
             // 장소명 조회 실패가 자동 기록 생성 전체 실패로 이어지지 않도록 비워 둔다.
             return null;
         }
     }
 
-    private String extractPlaceName(JsonNode response) {
+    private ReverseGeocodingResult extractLocation(JsonNode response) {
         if (response == null || !"OK".equals(response.path("status").asText())) {
             return null;
         }
@@ -78,12 +84,28 @@ public class GoogleReverseGeocodingClient implements ReverseGeocodingClient {
             return null;
         }
 
-        String regionName = extractRegionName(firstResult.path("address_components"));
+        JsonNode addressComponents = firstResult.path("address_components");
+        String country = findLongNameByType(addressComponents, "country");
+        String city = extractCityName(addressComponents);
+        String regionName = extractRegionName(addressComponents);
         if (StringUtils.hasText(regionName)) {
-            return trimPlaceName(regionName);
+            return new ReverseGeocodingResult(country, city, trimPlaceName(regionName));
         }
 
-        return trimPlaceName(firstResult.path("formatted_address").asText(null));
+        return new ReverseGeocodingResult(
+            country,
+            city,
+            trimPlaceName(firstResult.path("formatted_address").asText(null))
+        );
+    }
+
+    private String extractCityName(JsonNode addressComponents) {
+        String locality = findLongNameByType(addressComponents, "locality");
+        if (StringUtils.hasText(locality)) {
+            return locality;
+        }
+
+        return findLongNameByType(addressComponents, "administrative_area_level_1");
     }
 
     private String extractRegionName(JsonNode addressComponents) {
