@@ -1,7 +1,6 @@
 package com.triptrace.domain.post.post.dto;
 
 import com.triptrace.domain.image.image.entity.Image;
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.post.post.entity.Post;
 
@@ -22,10 +21,10 @@ public record PostResponse(
     LocalDateTime updatedAt
 ) {
     public PostResponse(Post post) {
-        this(post, List.of(), null, null);
+        this(post, List.of(), null);
     }
 
-    public PostResponse(Post post, List<Image> images, Marker marker, ImageUrlResolver imageUrlResolver) {
+    public PostResponse(Post post, List<Image> images, Marker marker) {
         this(
             post.getId(),
             post.getTrip().getId(),
@@ -33,9 +32,9 @@ public record PostResponse(
             post.getTitle(),
             post.getMemo(),
             images.stream()
-                .map(image -> new PostImageResponse(image, imageUrlResolver))
+                .map(PostImageResponse::new)
                 .toList(),
-            marker == null ? null : new PostMarkerResponse(marker, imageUrlResolver),
+            marker == null ? null : new PostMarkerResponse(marker),
             post.getCreatedAt(),
             post.getUpdatedAt()
         );
@@ -48,11 +47,11 @@ public record PostResponse(
         String mimeType,
         LocalDateTime capturedAt
     ) {
-        public PostImageResponse(Image image, ImageUrlResolver imageUrlResolver) {
+        public PostImageResponse(Image image) {
             this(
                 image.getId(),
-                imageUrlResolver == null ? image.getOriginalFileUrl() : imageUrlResolver.toPublicUrl(image.getOriginalFileUrl()),
-                imageUrlResolver == null ? image.getThumbnailUrl() : imageUrlResolver.toPublicUrl(image.getThumbnailUrl()),
+                image.getOriginalFileUrl(),
+                image.getThumbnailUrl(),
                 image.getMimeType(),
                 image.getCapturedAt()
             );
@@ -70,7 +69,7 @@ public record PostResponse(
         Long representativeImageId,
         String representativeThumbnailUrl
     ) {
-        public PostMarkerResponse(Marker marker, ImageUrlResolver imageUrlResolver) {
+        public PostMarkerResponse(Marker marker) {
             this(
                 marker.getId(),
                 marker.getPost().getId(),
@@ -81,10 +80,7 @@ public record PostResponse(
                 marker.getSource().name(),
                 marker.getRepresentativeImage() == null ? null : marker.getRepresentativeImage().getId(),
                 marker.getRepresentativeImage() == null
-                    ? null
-                    : imageUrlResolver == null
-                        ? marker.getRepresentativeImage().getThumbnailUrl()
-                        : imageUrlResolver.toPublicUrl(marker.getRepresentativeImage().getThumbnailUrl())
+                    ? null : marker.getRepresentativeImage().getThumbnailUrl()
             );
         }
     }

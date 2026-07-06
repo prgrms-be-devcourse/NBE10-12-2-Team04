@@ -21,7 +21,6 @@ class TripAutoRecordServiceTest {
             null,
             null,
             null,
-            null,
             null
         );
         Image first = imageCapturedAt(LocalDateTime.of(2026, 6, 30, 14, 0));

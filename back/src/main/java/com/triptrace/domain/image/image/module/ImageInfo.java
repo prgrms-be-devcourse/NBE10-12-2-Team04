@@ -9,27 +9,25 @@ import java.time.LocalDateTime;
 @Getter
 @Setter(value= AccessLevel.PACKAGE)
 public class ImageInfo{
-    private int  width;
-    private int height;
+    private Integer width;
+    private Integer height;
     private Double longitude;
     private Double latitude;
     private LocalDateTime capturedAt;
     private String timeZone;
     private String model;
     private String maker;
-    private int orientation;// 1 정상, 3 180도, 6 90도 시계, 8 270도 시계
-    private String mimeType;
-    private long fileSize;
-    ImageInfo(){
+    private ExifOrientation orientation;// 1 정상, 3 180도, 6 90도 시계, 8 270도 시계
+    private Long fileSize;
+    public ImageInfo(){
         width = height = 0;
         longitude = null;
         latitude = null;
         timeZone = null;
         model = null;
         maker = null;
-        orientation = 0;
-        mimeType = null;
-        fileSize = 0;
+        orientation = ExifOrientation.NORMAL;
+        fileSize = 0L;
         capturedAt = null;
     }
     @Override
@@ -40,12 +38,11 @@ public class ImageInfo{
             .append("\n height: " + height)
             .append("\n longitude: " + longitude)
             .append("\n latitude: " + latitude)
-            .append("\n capturedAt: " + capturedAt.toString())
+            .append("\n capturedAt: " + capturedAt)
             .append("\n timeZone: " + timeZone)
             .append("\n model: " + model)
             .append("\n maker: " + maker)
             .append("\n orientation: " + orientation)
-            .append("\n mimeType: " + mimeType)
             .append("\n fileSize: " + fileSize);
         sb.append("\n------------------splitter------------------");
         return sb.toString();

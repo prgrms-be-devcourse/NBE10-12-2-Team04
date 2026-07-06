@@ -2,7 +2,6 @@ package com.triptrace.domain.post.post.service;
 
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.repository.ImageRepository;
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.dto.PostCreateRequest;
@@ -29,7 +28,6 @@ public class PostService {
     private final TripRepository tripRepository;
     private final ImageRepository imageRepository;
     private final MarkerRepository markerRepository;
-    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public PostResponse create(Long tripId, Long ownerId, PostCreateRequest request) {
@@ -105,7 +103,7 @@ public class PostService {
     private PostResponse toResponse(Post post) {
         List<Image> images = imageRepository.findByPostId(post.getId());
         Marker marker = markerRepository.findByPostId(post.getId()).orElse(null);
-        return new PostResponse(post, images, marker, imageUrlResolver);
+        return new PostResponse(post, images, marker);
     }
 
     private List<PostResponse> toResponses(List<Post> posts) {
@@ -127,9 +125,24 @@ public class PostService {
             .map(post -> new PostResponse(
                 post,
                 imagesByPostId.getOrDefault(post.getId(), List.of()),
-                markerByPostId.get(post.getId()),
-                imageUrlResolver
+                markerByPostId.get(post.getId())
             ))
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Post getPost(Long postId) {
+        Post post = postRepository.findById(postId)
+            .orElseThrow(()->new ServiceException("404-1","게시물을 찾을 수 없습니다."));
+        return post;
+    }
+
+    @Transactional(readOnly = true)
+    public Post getPost(Trip trip, Long postId) {
+        Post post = getPost(postId);
+        if (!post.getTrip().getId().equals(trip.getId())) {
+            throw new ServiceException("404-1","게시물을 찾을 수 없습니다.");
+        }
+        return post;
     }
 }

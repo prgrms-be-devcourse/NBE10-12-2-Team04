@@ -6,6 +6,7 @@ import com.triptrace.domain.image.image.facade.ImageModifyFacade;
 import com.triptrace.domain.image.image.facade.ImageUploadFacade;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,7 +22,7 @@ public class ApiV1ImageController {
 
     @PostMapping("/trips/{tripId}/images")
     public RsData<List<ImageUploadResponse>> upload(
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @RequestParam MultipartFile[] images
     ){
@@ -33,7 +34,7 @@ public class ApiV1ImageController {
     }
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images/{imageId}")
     public RsData<?> delete(
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @PathVariable Long imageId
@@ -48,7 +49,7 @@ public class ApiV1ImageController {
 
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images")
     public RsData<?> delete(
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @RequestParam String imageUrl
@@ -62,7 +63,7 @@ public class ApiV1ImageController {
     }
     @PatchMapping("/trips/{tripId}/images")
     public RsData<?> modify(
-        @RequestParam Long ownerId,
+        @AuthenticationPrincipal  Long ownerId,
         @PathVariable Long tripId,
         @RequestParam Long postId,
         @RequestParam Long imageId
@@ -74,5 +75,7 @@ public class ApiV1ImageController {
             imageModifyFacade.modifyById(ownerId,tripId,postId,imageId)
         );
     }
+
+
 
 }

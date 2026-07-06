@@ -1,6 +1,6 @@
 package com.triptrace.global.web;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.triptrace.domain.image.image.module.storage.ImageStorageProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -9,18 +9,18 @@ import java.nio.file.Path;
 
 @Configuration
 public class StaticResourceConfig implements WebMvcConfigurer {
+    private final String uploadDir;
     private final String servingImagesPath;
     private final String thumbnailImagesPath;
     private final String profileImagesPath;
 
     public StaticResourceConfig(
-        @Value("${custom.servingImage}") String servingImagesPath,
-        @Value("${custom.thumbnailImage}") String thumbnailImagesPath,
-        @Value("${custom.profileImage}") String profileImagesPath
+        ImageStorageProperties imageStorageProperties
     ) {
-        this.servingImagesPath = toResourceLocation(servingImagesPath);
-        this.thumbnailImagesPath = toResourceLocation(thumbnailImagesPath);
-        this.profileImagesPath = toResourceLocation(profileImagesPath);
+        this.uploadDir = imageStorageProperties.upload().path();
+        this.servingImagesPath = toResourceLocation(uploadDir+imageStorageProperties.upload().serving());
+        this.thumbnailImagesPath = toResourceLocation(uploadDir+imageStorageProperties.upload().thumbnail());
+        this.profileImagesPath = toResourceLocation(uploadDir+imageStorageProperties.upload().profile());
     }
 
     @Override

@@ -4,6 +4,13 @@ spring:
       max-file-size: 10MB
       max-request-size: 100MB
 custom:
-  servingImage: src/test/resources/images/serving
-  thumbnailImage: src/test/resources/images/thumbnail
-  profileImage: src/test/resources/images/profile
+  ext:
+    jpg: jpeg
+  upload:
+    path: src/test/resources
+    serving: /images/serving
+    thumbnail: /images/thumbnail
+    profile: /images/profile
+  thumbnail:
+    width: 1024
+    height: 1024

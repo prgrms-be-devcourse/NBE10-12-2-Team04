@@ -120,8 +120,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ImageProcessException.class)
     public ResponseEntity<RsData<Void>> handle(ImageProcessException ex) {
-        RsData<Void> rsData = ex.getRsData();
-
+        RsData<Void> rsData = new RsData<>(
+            ex.getResultCode(),
+            ex.getMsg(),
+            null
+        );
         return new ResponseEntity<>(
             rsData,
             ResponseEntity

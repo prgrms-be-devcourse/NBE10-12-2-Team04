@@ -2,7 +2,6 @@ package com.triptrace.domain.trip.trip.service;
 
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.repository.MemberRepository;
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.trip.trip.dto.TripCreateRequest;
 import com.triptrace.domain.trip.trip.dto.TripModifyRequest;
 import com.triptrace.domain.trip.trip.dto.TripResponse;
@@ -20,7 +19,6 @@ import java.util.List;
 public class TripService {
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
-    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public TripResponse create(Long ownerId, TripCreateRequest request) {
@@ -117,7 +115,7 @@ public class TripService {
     }
 
     private TripResponse toResponse(Trip trip) {
-        return new TripResponse(trip, imageUrlResolver);
+        return new TripResponse(trip);
     }
 
     private void validateOwner(Trip trip, Long ownerId) {

@@ -7,16 +7,20 @@ import com.triptrace.domain.image.image.dto.ImageUploadResponse;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.factory.ImageFactory;
 import com.triptrace.domain.image.image.module.ImageInfo;
-import com.triptrace.domain.image.image.module.ImageProcessor;
+import com.triptrace.domain.image.image.module.ImageMetadataExtractor;
 import com.triptrace.domain.image.image.module.SavedFileInfo;
 import com.triptrace.domain.image.image.module.exception.ImageProcessException;
+import com.triptrace.domain.image.image.module.storage.ImageFileStorage;
 import com.triptrace.domain.image.image.service.ImageService;
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.member.member.entity.Member;
-import com.triptrace.domain.member.member.repository.MemberRepository;
+import com.triptrace.domain.member.member.service.MemberService;
+import com.triptrace.domain.post.post.entity.Post;
+import com.triptrace.domain.post.post.service.PostService;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.service.TripService;
 import com.triptrace.global.exception.ServiceException;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,72 +35,118 @@ import java.util.List;
 @Slf4j
 public class ImageUploadFacade {
     private final ImageService imageService;
-    private final ImageProcessor imageProcessor;
+    private final ImageMetadataExtractor imageMetadataExtractor;
+    private final ImageFileStorage imageFileStorage;
     private final TripService tripService;
-    private final ImageUrlResolver imageUrlResolver;
 
     //member service로 대체
-    private final MemberRepository memberRepository;
-    private Member getMember(Long ownerId){
-        return memberRepository.findById(ownerId).orElseThrow(()->new ServiceException("404-1","사용자가 없습니다."));
-    }
-    private ImageUploadResponse upload(Long ownerId, Long tripId, MultipartFile imageFile) {
-        String fileName = null;
-        List<SavedFileInfo> savedFileInfoList;
-        Image image;
-        ImageServiceResponse imageServiceResponse = null;
-        try {
-            fileName = imageFile.getOriginalFilename();
-            if( ! imageFile.getContentType().equals("image/jpeg")){
-                throw ImageExceptionCatalog.invalid();
-            }
-            //extract
-            ImageInfo imageInfo = imageProcessor.extract(imageFile.getInputStream());
-            //image file save
-            savedFileInfoList = imageProcessor.saveImageAll(imageFile.getInputStream(),imageInfo.getOrientation());
-            if(savedFileInfoList.isEmpty()){
-                throw ImageExceptionCatalog.invalid();
-            }
-            ImageFileRequest imageFileRequest = ImageFactory.createImageFileRequest(savedFileInfoList);
-            //insert db
-            Member owner = getMember(ownerId);
-            Trip trip = tripService.findOwnedTrip(tripId, ownerId);
-            image = ImageFactory.createImage(owner, trip, imageInfo, imageFileRequest);
-            imageServiceResponse = imageService.create(image);
+    private final MemberService memberService;
+    private final PostService postService;
+
+    private ImageInfo extract(MultipartFile imageFile) {
+        ImageInfo imageInfo = new ImageInfo();
+        try{
+            byte[] bytes = imageFile.getBytes();
+            imageInfo = imageMetadataExtractor.extract(bytes);
         }
-        catch(IOException | ServiceException | ImageProcessException e){
-            log.warn(ImageExceptionCatalog.invalid().toString());
+        catch(IOException | ImageProcessException e){
+            //추출단계는 권장 영역이므로 예외를 올리지 않고 로그만 기록
+            log.warn(e.getMessage());
+        }
+        return imageInfo;
+    }
+
+    ImageUploadResponse upload(Member owner, Trip trip, MultipartFile imageFile) {
+        //예외 반환 안 함
+        //uploadImages의 부속 메서드 10개 중 2개 실패한다더라도 8개는 저장해야함
+        String fileName = imageFile.getOriginalFilename();
+        SavedFileInfo savedFileInfo;
+        ImageFileRequest imageFileRequest;
+        //extract
+        ImageInfo imageInfo = extract(imageFile);
+        try {
+            byte[] bytes = imageFile.getBytes();
+            savedFileInfo = imageFileStorage.saveImageWithThumbnail(bytes, imageInfo.getOrientation());
+            if(savedFileInfo == null){
+                throw ImageExceptionCatalog.invalid("이미지 파일 저장에 실패했습니다.");
+            }
+            imageFileRequest = ImageFactory.createImageFileRequest(savedFileInfo);
+        }
+        catch(IOException | ImageProcessException e){
+            //저장 실패시 응답 반환 - 로그만
+            log.warn(e.getMessage());
             return ImageFactory.createImageUploadResponse(fileName, null);
         }
-        return toPublicUrlResponse(ImageFactory.createImageUploadResponse(fileName, imageServiceResponse));
-    }
-    public List<ImageUploadResponse> uploadImages(Long ownerId, Long tripId, MultipartFile[] images){
-        if(images == null || images.length == 0){
-            throw ImageExceptionCatalog.invalid();
+        //insert db
+        Image image = ImageFactory.createImage(owner, trip, imageInfo, imageFileRequest);
+        ImageServiceResponse imageServiceResponse = null;
+        try {
+            imageServiceResponse = imageService.create(image);
+        }catch(ImageProcessException e){
+            //DB 저장 실패
+            imageFileStorage.cleanUp(savedFileInfo);
+            log.warn(e.getMessage());
         }
-
+        return ImageFactory.createImageUploadResponse(fileName, imageServiceResponse);
+    }
+    public List<ImageUploadResponse> uploadImages(Long ownerId,
+                                                  Long tripId,
+                                                  @NotEmpty MultipartFile[] images){
+        //다수의 파일 업로드
+        Member owner = memberService.findById(ownerId);
+        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
         List<ImageUploadResponse> list = new ArrayList<>();
-
-        ImageUploadResponse response;
         for (MultipartFile image : images) {
-            response = upload(ownerId, tripId, image);
-            list.add(response);
+            list.add(upload(owner, trip, image));
         }
         return list;
     }
 
-    private ImageUploadResponse toPublicUrlResponse(ImageUploadResponse response) {
-        if (response == null || response.uploadStatus() == null || response.uploadStatus().name().equals("FAILED")) {
-            return response;
+    public ImageUploadResponse uploadImage(Long ownerId, Long tripId, Long postId, MultipartFile imageFile) {
+        //Post가 있는 경우 업로드
+        Member owner = memberService.findById(ownerId);
+        Trip trip = tripService.findOwnedTrip(tripId, owner.getId());
+        Post post = postService.getPost(trip, postId);
+        ImageInfo imageInfo = extract(imageFile);
+        SavedFileInfo savedFileInfo;
+        try {
+            byte[] bytes = imageFile.getBytes();
+            savedFileInfo = imageFileStorage.saveImageWithThumbnail(bytes,imageInfo.getOrientation());
+            if(savedFileInfo == null){
+                throw ImageExceptionCatalog.invalid();
+            }
+        } catch (IOException | ServiceException e) {
+            throw ImageExceptionCatalog.invalid();
         }
+        Image image = ImageFactory.createImage(owner, trip, post, imageInfo, ImageFactory.createImageFileRequest(savedFileInfo));
+        ImageServiceResponse imageServiceResponse = null;
+        try {
+            imageServiceResponse = imageService.create(image);
+        }catch (RuntimeException e){
+            imageFileStorage.cleanUp(savedFileInfo);
+            throw e;
+        }
+        return ImageFactory.createImageUploadResponse(imageFile.getName(),imageServiceResponse);
+    }
 
-        return new ImageUploadResponse(
-            response.fileName(),
-            response.id(),
-            imageUrlResolver.toPublicUrl(response.originalFileUrl()),
-            imageUrlResolver.toPublicUrl(response.thumbnailUrl()),
-            response.mimeType(),
-            response.uploadStatus()
-        );
+    public String uploadProfile(
+        @NotEmpty Long ownerId,
+        @NotNull MultipartFile imageFile) {
+        //애매함
+        Member owner = memberService.findById(ownerId);
+        String url = null;
+        try{
+            url = imageFileStorage.saveProfileImage(imageFile.getBytes());
+            memberService.modifyProfileImageUrl(ownerId, url);
+        }catch (IOException e){
+          throw ImageExceptionCatalog.invalid();
+        }catch(RuntimeException e){
+            if(url != null) imageFileStorage.deleteImage(url);
+            throw e;
+        }
+        if(url == null){
+            throw ImageExceptionCatalog.invalid("프로필 이미지 저장에 실패했습니다.");
+        }
+        return url;
     }
 }

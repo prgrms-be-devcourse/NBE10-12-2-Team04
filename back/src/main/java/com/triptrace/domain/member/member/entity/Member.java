@@ -45,4 +45,8 @@ public class Member extends BaseEntity {
         this.profileImageUrl = profileImageUrl;
         this.status = status;
     }
+
+    public void modifyProfile(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
 }

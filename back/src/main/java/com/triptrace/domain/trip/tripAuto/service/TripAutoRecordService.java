@@ -2,7 +2,6 @@ package com.triptrace.domain.trip.tripAuto.service;
 
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.repository.ImageRepository;
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingClient;
@@ -42,7 +41,6 @@ public class TripAutoRecordService {
     private final PostRepository postRepository;
     private final MarkerRepository markerRepository;
     private final ReverseGeocodingClient reverseGeocodingClient;
-    private final ImageUrlResolver imageUrlResolver;
 
     // 자동 생성은 Post 생성, Marker 생성, Image 연결이 하나의 작업이므로 중간 실패 시 전체 롤백
     @Transactional
@@ -113,7 +111,7 @@ public class TripAutoRecordService {
                 post.getId(),
                 marker.getId(),
                 representativeImage.getId(),
-                imageUrlResolver.toPublicUrl(representativeImage.getThumbnailUrl()),
+                representativeImage.getThumbnailUrl(),
                 postTitle,
                 placeName,
                 recordDate,

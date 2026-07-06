@@ -1,6 +1,5 @@
 package com.triptrace.domain.trip.trip.dto;
 
-import com.triptrace.domain.image.image.support.ImageUrlResolver;
 import com.triptrace.domain.trip.trip.entity.Trip;
 
 import java.math.BigDecimal;
@@ -24,10 +23,6 @@ public record TripResponse(
     Long likeCount
 ) {
     public TripResponse(Trip trip) {
-        this(trip, null);
-    }
-
-    public TripResponse(Trip trip, ImageUrlResolver imageUrlResolver) {
         this(
             trip.getId(),
             trip.getOwner().getId(),
@@ -37,10 +32,7 @@ public record TripResponse(
                 trip.getOwner().getProfileImageUrl()
             ),
             trip.getRepresentativeImage() == null
-                ? null
-                : imageUrlResolver == null
-                    ? trip.getRepresentativeImage().getThumbnailUrl()
-                    : imageUrlResolver.toPublicUrl(trip.getRepresentativeImage().getThumbnailUrl()),
+                ? null : trip.getRepresentativeImage().getThumbnailUrl(),
             trip.getRepresentativeImage() == null ? null : trip.getRepresentativeImage().getGpsLat(),
             trip.getRepresentativeImage() == null ? null : trip.getRepresentativeImage().getGpsLng(),
             trip.getTitle(),

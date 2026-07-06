@@ -4,6 +4,7 @@ import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.global.exception.ServiceException;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,5 +45,12 @@ public class MemberService {
     public Member findById(Long memberId) {
         return memberRepository.findById(memberId)
             .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public void modifyProfileImageUrl(Long id, String profileImageUrl) {
+        Member member = findById(id);
+        member.modifyProfile(profileImageUrl);
+        memberRepository.save(member);
     }
 }
