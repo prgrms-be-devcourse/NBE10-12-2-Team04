@@ -8,17 +8,8 @@ import {
   Plus, Trash2, Save, Eye, ChevronDown,
   MapPin, X, Upload, ImageIcon,
 } from 'lucide-react';
-import { tripApi, postApi, markerApi } from '@/lib/api';
-import type { Trip, Post, Marker, TripImage } from '@/types';
-
-type PlaceCandidate = {
-  placeId: string;
-  name: string;
-  address?: string;
-  latitude: number | string;
-  longitude: number | string;
-  types?: string[];
-};
+import { tripApi, postApi, markerApi, placeApi } from '@/lib/api';
+import type { Trip, Post, Marker, TripImage, PlaceCandidate } from '@/types';
 
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const GOOGLE_MAPS_SCRIPT_ID = 'triptrace-google-map-script';
@@ -41,6 +32,12 @@ function withDerivedPostTime(post: Post) {
     ...post,
     time: post.time ?? toTimeInput(post.marker?.visitTime),
   };
+}
+
+function getDefaultVisitTime(post: Post) {
+  if (post.marker?.visitTime) return post.marker.visitTime;
+  if (post.time) return post.time.includes('T') ? post.time : `${post.date}T${post.time}`;
+  return post.date ? `${post.date}T00:00` : undefined;
 }
 
 function getTripImagesFromPosts(posts: Post[]) {
@@ -335,7 +332,7 @@ function MarkerEditor({
   onToast,
 }: {
   post: Post;
-  onMarkerUpdated: (marker: Marker) => void;
+  onMarkerUpdated: (marker: Marker | null) => void;
   onToast: (message: string, tone?: ToastState['tone']) => void;
 }) {
   const [marker, setMarker] = useState<Marker | null>(post.marker ?? null);
@@ -344,10 +341,12 @@ function MarkerEditor({
   const [candidates, setCandidates] = useState<PlaceCandidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState(post.marker?.placeName ?? '');
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey,
     id: GOOGLE_MAPS_SCRIPT_ID,
   });
+
   const markerPosition = marker && Number.isFinite(Number(marker.lat)) && Number.isFinite(Number(marker.lng))
     ? { lat: Number(marker.lat), lng: Number(marker.lng) }
     : null;
@@ -356,11 +355,13 @@ function MarkerEditor({
     if (!marker) return;
     const nextMarker = { ...marker, [k]: v };
     setMarker(nextMarker);
-    onMarkerUpdated(nextMarker);
+    if (nextMarker.id) {
+      onMarkerUpdated(nextMarker);
+    }
   };
 
   const loadCandidates = async () => {
-    if (!marker) return;
+    if (!marker?.id) return;
 
     if (candidatesOpen) {
       setCandidatesOpen(false);
@@ -382,19 +383,39 @@ function MarkerEditor({
     }
   };
 
+  const searchPlaces = async () => {
+    const keyword = searchKeyword.trim();
+    if (!keyword) {
+      setCandidatesError('검색어를 입력해주세요.');
+      setCandidatesOpen(true);
+      return;
+    }
+
+    setCandidatesOpen(true);
+    setCandidatesLoading(true);
+    setCandidatesError('');
+    try {
+      const data = await placeApi.search(keyword);
+      setCandidates(data);
+    } catch (error) {
+      setCandidatesError(error instanceof Error ? error.message : '장소 검색에 실패했습니다.');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
   const selectCandidate = (candidate: PlaceCandidate) => {
-    const nextMarker = marker
-      ? {
-          ...marker,
-          placeName: candidate.name,
-          lat: Number(candidate.latitude),
-          lng: Number(candidate.longitude),
-          source: 'MANUAL',
-        }
-      : null;
+    const nextMarker = {
+      id: marker?.id ?? '',
+      placeName: candidate.name,
+      lat: Number(candidate.latitude),
+      lng: Number(candidate.longitude),
+      visitTime: marker?.visitTime ?? getDefaultVisitTime(post),
+      source: 'MANUAL',
+    };
 
     setMarker(nextMarker);
-    if (nextMarker) {
+    if (nextMarker.id) {
       onMarkerUpdated(nextMarker);
     }
     setCandidatesOpen(false);
@@ -404,17 +425,20 @@ function MarkerEditor({
     if (!marker) return;
     setSaving(true);
     try {
-      const updatedMarker = await markerApi.update(post.id, marker.id, {
+      const markerPayload = {
         placeName: marker.placeName,
         lat: marker.lat,
         lng: marker.lng,
         visitTime: marker.visitTime,
-        source: marker.source ?? 'AUTO',
-      });
+        source: marker.source ?? (marker.id ? 'AUTO' : 'MANUAL'),
+      };
+      const updatedMarker = marker.id
+        ? await markerApi.update(post.id, marker.id, markerPayload)
+        : await markerApi.create(post.id, markerPayload);
       const nextMarker = (updatedMarker ?? marker) as Marker;
       setMarker(nextMarker);
       onMarkerUpdated(nextMarker);
-      onToast('마커가 수정되었습니다.');
+      onToast(marker.id ? '마커가 수정되었습니다.' : '마커가 추가되었습니다.');
     } catch (error) {
       onToast(error instanceof Error ? error.message : '마커 저장에 실패했습니다.', 'error');
     } finally {
@@ -423,15 +447,44 @@ function MarkerEditor({
   };
 
   const handleDelete = async () => {
-    if (!marker || !confirm('마커를 삭제하시겠습니까?')) return;
+    if (!marker?.id || !confirm('마커를 삭제하시겠습니까?')) return;
     try {
       await markerApi.delete(post.id, marker.id);
       setMarker(null);
+      onMarkerUpdated(null);
       onToast('마커가 삭제되었습니다.');
     } catch {
       onToast('마커 삭제에 실패했습니다.', 'error');
     }
   };
+
+  const candidateList = (
+    <div className="mt-2 overflow-hidden rounded-lg border border-gray-100 bg-white">
+      {candidatesLoading ? (
+        <p className="px-3 py-3 text-xs text-gray-400">장소 후보를 불러오는 중...</p>
+      ) : candidatesError ? (
+        <p className="px-3 py-3 text-xs text-red-400">{candidatesError}</p>
+      ) : candidates.length === 0 ? (
+        <p className="px-3 py-3 text-xs text-gray-400">표시할 장소 후보가 없습니다.</p>
+      ) : (
+        <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
+          {candidates.map((candidate) => (
+            <button
+              type="button"
+              key={candidate.placeId ?? `${candidate.name}-${candidate.latitude}-${candidate.longitude}`}
+              onClick={() => selectCandidate(candidate)}
+              className="block w-full px-3 py-2 text-left hover:bg-green-50"
+            >
+              <p className="text-xs font-semibold text-gray-800">{candidate.name}</p>
+              {candidate.address && (
+                <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{candidate.address}</p>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -478,6 +531,28 @@ function MarkerEditor({
           <>
             <div>
               <label className="block text-xs text-gray-500 mb-1">선택된 마커 1</label>
+              <div className="mb-3 flex gap-2">
+                <input
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      searchPlaces();
+                    }
+                  }}
+                  placeholder="장소명 또는 주소 검색"
+                  className="min-w-0 flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
+                />
+                <button
+                  type="button"
+                  onClick={searchPlaces}
+                  disabled={candidatesLoading}
+                  className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                >
+                  검색
+                </button>
+              </div>
               <p className="text-xs text-gray-400 mb-2">장소명</p>
               <input
                 value={marker.placeName}
@@ -487,6 +562,7 @@ function MarkerEditor({
               <button
                 type="button"
                 onClick={loadCandidates}
+                disabled={!marker.id}
                 className="mt-2 flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 <span>장소 후보 펼치기</span>
@@ -495,33 +571,7 @@ function MarkerEditor({
                   className={`text-gray-400 transition-transform ${candidatesOpen ? 'rotate-180' : ''}`}
                 />
               </button>
-              {candidatesOpen && (
-                <div className="mt-2 overflow-hidden rounded-lg border border-gray-100 bg-white">
-                  {candidatesLoading ? (
-                    <p className="px-3 py-3 text-xs text-gray-400">장소 후보를 불러오는 중...</p>
-                  ) : candidatesError ? (
-                    <p className="px-3 py-3 text-xs text-red-400">{candidatesError}</p>
-                  ) : candidates.length === 0 ? (
-                    <p className="px-3 py-3 text-xs text-gray-400">표시할 장소 후보가 없습니다.</p>
-                  ) : (
-                    <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
-                      {candidates.map((candidate) => (
-                        <button
-                          type="button"
-                          key={candidate.placeId}
-                          onClick={() => selectCandidate(candidate)}
-                          className="block w-full px-3 py-2 text-left hover:bg-green-50"
-                        >
-                          <p className="text-xs font-semibold text-gray-800">{candidate.name}</p>
-                          {candidate.address && (
-                            <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{candidate.address}</p>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {candidatesOpen && candidateList}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -563,10 +613,11 @@ function MarkerEditor({
                 disabled={saving}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
               >
-                {saving ? '저장 중...' : '마커 수정'}
+                {saving ? '저장 중...' : marker.id ? '마커 수정' : '마커 추가'}
               </button>
               <button
                 onClick={handleDelete}
+                disabled={!marker.id}
                 className="px-4 py-2 border border-red-200 text-red-500 text-xs font-semibold rounded-lg hover:bg-red-50 transition-colors"
               >
                 마커 삭제
@@ -575,10 +626,35 @@ function MarkerEditor({
 
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-            <MapPin size={28} className="mb-2" />
-            <p className="text-sm">마커가 없습니다.</p>
-            <p className="text-xs mt-1">자동 기록 생성 시 마커가 추가됩니다.</p>
+          <div className="rounded-xl border border-dashed border-gray-200 p-4">
+            <div className="mb-4 flex flex-col items-center justify-center py-6 text-gray-400">
+              <MapPin size={28} className="mb-2" />
+              <p className="text-sm">마커가 없습니다.</p>
+              <p className="text-xs mt-1">장소를 검색해 수동으로 마커를 추가할 수 있습니다.</p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchPlaces();
+                  }
+                }}
+                placeholder="장소명 또는 주소 검색"
+                className="min-w-0 flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
+              />
+              <button
+                type="button"
+                onClick={searchPlaces}
+                disabled={candidatesLoading}
+                className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                검색
+              </button>
+            </div>
+            {candidatesOpen && candidateList}
           </div>
         )}
       </div>
@@ -981,9 +1057,9 @@ export default function TripEditPage() {
               post={selectedPost}
               onToast={showToast}
               onMarkerUpdated={(marker) => {
-                setSelectedPost((p) => (p ? withDerivedPostTime({ ...p, marker }) : p));
+                setSelectedPost((p) => (p ? withDerivedPostTime({ ...p, marker: marker ?? undefined }) : p));
                 setPosts((prev) => prev.map((p) => (
-                  p.id === selectedPost.id ? withDerivedPostTime({ ...p, marker }) : p
+                  p.id === selectedPost.id ? withDerivedPostTime({ ...p, marker: marker ?? undefined }) : p
                 )));
               }}
             />

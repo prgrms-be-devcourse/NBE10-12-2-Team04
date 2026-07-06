@@ -77,6 +77,19 @@ public class MarkerController {
         );
     }
 
+    // 장소 검색
+    @GetMapping("/places/search")
+    public RsData<List<PlaceCandidateResponse>> searchPlaces(
+        @RequestParam String keyword
+    ) {
+
+        return new RsData<>(
+            "200-1",
+            "장소 검색에 성공했습니다.",
+            markerService.searchPlaces(keyword)
+        );
+    }
+
     // 마커 수정
     @PatchMapping("/posts/markers/{markerId}")
     public RsData<MarkerResponse> modifyMarker (
