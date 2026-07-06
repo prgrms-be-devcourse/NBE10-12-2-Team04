@@ -77,7 +77,7 @@ function normalizeTrip(trip: Record<string, unknown>) {
     id: String(trip.id),
     ownerId: ownerId != null ? String(ownerId) : undefined,
     author,
-    thumbnailUrl: toAssetUrl(trip.thumbnailUrl),
+    thumbnailUrl: toAssetUrl(trip.thumbnailUrl ?? trip.representativeImageUrl ?? trip.representativeThumbnailUrl),
     representativeLat: trip.representativeLat == null ? undefined : Number(trip.representativeLat),
     representativeLng: trip.representativeLng == null ? undefined : Number(trip.representativeLng),
     startDate: toDateInput(trip.startDate),
@@ -110,8 +110,19 @@ function normalizeMarker(marker: Record<string, unknown> | null | undefined) {
     placeName: String(marker.placeName ?? '위치 미정'),
     lat: Number(marker.lat ?? marker.centerLat),
     lng: Number(marker.lng ?? marker.centerLng),
+    representativeImageUrl: toAssetUrl(marker.representativeImageUrl ?? marker.representativeThumbnailUrl ?? marker.thumbnailUrl),
     visitTime: typeof marker.visitTime === 'string' ? marker.visitTime : marker.visitedAt,
     source: typeof marker.source === 'string' ? marker.source : undefined,
+  };
+}
+
+function normalizeTripImage(image: Record<string, unknown>) {
+  return {
+    id: String(image.id),
+    url: toAssetUrl(image.originalFileUrl ?? image.url ?? image.thumbnailUrl),
+    thumbnailUrl: toAssetUrl(image.thumbnailUrl ?? image.originalFileUrl ?? image.url),
+    filename: String(image.fileName ?? image.filename ?? image.originalFileUrl ?? image.id),
+    postId: image.postId == null ? undefined : String(image.postId),
   };
 }
 
@@ -179,6 +190,17 @@ async function request<T = unknown>(path: string, options?: RequestInit): Promis
   return json as T;
 }
 
+function getListData<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const candidates = [record.content, record.items, record.list, record.images, record.data, record.results];
+    const found = candidates.find(Array.isArray);
+    if (found) return found as T[];
+  }
+  return [];
+}
+
 // ---------- Auth ----------
 export const authApi = {
   signup: (body: { email: string; username: string; password: string; profileImageUrl?: string }) =>
@@ -231,9 +253,10 @@ export const userApi = {
     const user = await request<Record<string, unknown>>('/api/v1/users/me');
     return normalizeUser(user);
   },
-  getMyTrips: async () => {
-    const trips = await request<Record<string, unknown>[]>('/api/v1/users/me/trips');
-    return trips.map(normalizeTrip);
+  getMyTrips: async (params?: { page?: number; size?: number }) => {
+    const query = params ? `?page=${params.page ?? 0}&size=${params.size ?? 12}` : '';
+    const result = await request<unknown>(`/api/v1/users/me/trips${query}`);
+    return getListData<Record<string, unknown>>(result).map(normalizeTrip);
   },
 };
 
@@ -243,9 +266,10 @@ export const feedApi = {
     const trips = await request<Record<string, unknown>[]>('/api/v1/feed/trips/top-liked');
     return trips.map(normalizeTrip);
   },
-  getRecent: async () => {
-    const trips = await request<Record<string, unknown>[]>('/api/v1/feed/trips/recent');
-    return trips.map(normalizeTrip);
+  getRecent: async (params?: { page?: number; size?: number }) => {
+    const query = params ? `?page=${params.page ?? 0}&size=${params.size ?? 10}` : '';
+    const result = await request<unknown>(`/api/v1/feed/trips/recent${query}`);
+    return getListData<Record<string, unknown>>(result).map(normalizeTrip);
   },
 };
 
@@ -300,6 +324,17 @@ export const tripApi = {
     }),
 
   delete: (tripId: string) => request(`/api/v1/trips/${tripId}`, { method: 'DELETE' }),
+
+  getImages: async (tripId: string) => {
+    const result = await request<unknown>(`/api/v1/trips/${tripId}/images`);
+    return getListData<Record<string, unknown>>(result).map(normalizeTripImage);
+  },
+
+  updateRepresentativeImage: (tripId: string, imageId: string) =>
+    request<Record<string, unknown>>(`/api/v1/trips/${tripId}/representative-image`, {
+      method: 'PATCH',
+      body: JSON.stringify({ imageId: Number(imageId) }),
+    }).then(normalizeTrip),
 
   uploadImages: async (tripId: string, ownerId: string, formData: FormData) => {
     const token = getAccessToken();
@@ -359,6 +394,19 @@ export const postApi = {
     return posts.map(normalizePost);
   },
 
+  create: (
+    tripId: string,
+    body: Partial<{ title: string; content: string; date: string; time: string }>,
+  ) =>
+    request<Record<string, unknown>>(`/api/v1/trips/${tripId}/posts`, {
+      method: 'POST',
+      body: JSON.stringify({
+        date: body.date,
+        title: body.title,
+        memo: body.content,
+      }),
+    }).then(normalizePost),
+
   update: (
     _tripId: string,
     postId: string,
@@ -376,12 +424,32 @@ export const postApi = {
   delete: (_tripId: string, postId: string) =>
     request(`/api/v1/posts/${postId}`, { method: 'DELETE' }),
 
-  addImages: (tripId: string, postId: string, formData: FormData) =>
-    fetch(`${BASE_URL}/api/v1/trips/${tripId}/posts/${postId}/images`, {
+  addImages: async (tripId: string, postId: string, formData: FormData) => {
+    const token = getAccessToken();
+    const res = await fetch(`${BASE_URL}/api/v1/trips/${tripId}/posts/${postId}/images`, {
       method: 'POST',
       credentials: 'include',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: formData,
-    }).then((r) => r.json()),
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(
+        (error as { msg?: string; message?: string }).msg ??
+          (error as { message?: string }).message ??
+          '이미지 업로드 실패',
+      );
+    }
+
+    const json = await res.json();
+    if (json && typeof json === 'object' && 'data' in json) {
+      return (json as ApiResponse<{ images?: Array<{ id: string; url: string; filename: string }> }>).data;
+    }
+    return json as { images?: Array<{ id: string; url: string; filename: string }> };
+  },
 
   deleteImage: (tripId: string, postId: string, imageId: string) =>
     request(`/api/v1/trips/${tripId}/posts/${postId}/images/${imageId}`, { method: 'DELETE' }),
