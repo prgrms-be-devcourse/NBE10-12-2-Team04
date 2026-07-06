@@ -166,6 +166,8 @@ public class ImageServiceFacadeTest {
         MultipartFile[] files = new MultipartFile[] {toMultipartFile()};
         List<ImageUploadResponse> uploadImages = imageUploadFacade.uploadImages(owner.getId(), trip.getId(),
             post.getId(), files);
+        imageDeleteFacade.deleteById(owner.getId(), trip.getId(),
+            post.getId(), uploadImages.getFirst().id());
         ImageUploadResponse uploaded = uploadImages.stream().findFirst().get();
 
         assertThatThrownBy(() -> imageService.findById(uploaded.id())).isInstanceOf(ServiceException.class);
