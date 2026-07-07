@@ -138,16 +138,17 @@ function normalizeTripImage(image: Record<string, unknown>) {
   };
 }
 
+function normalizePostImage(image: Record<string, unknown>) {
+  return {
+    id: String(image.id),
+    url: toAssetUrl(image.thumbnailUrl ?? image.originalFileUrl ?? image.url),
+    filename: String(image.fileName ?? image.filename ?? image.originalFileUrl ?? image.id),
+  };
+}
+
 function normalizePost(post: Record<string, unknown>) {
   const images = Array.isArray(post.images)
-    ? post.images.map((image) => {
-        const item = image as Record<string, unknown>;
-        return {
-          id: String(item.id),
-          url: toAssetUrl(item.thumbnailUrl ?? item.originalFileUrl ?? item.url),
-          filename: String(item.fileName ?? item.filename ?? item.originalFileUrl ?? item.id),
-        };
-      })
+    ? post.images.map((image) => normalizePostImage(image as Record<string, unknown>))
     : [];
   const rawMarker = post.marker as Record<string, unknown> | null | undefined;
   const marker = normalizeMarker(rawMarker);
@@ -457,10 +458,14 @@ export const postApi = {
     }
 
     const json = await res.json();
-    if (json && typeof json === 'object' && 'data' in json) {
-      return (json as ApiResponse<{ images?: Array<{ id: string; url: string; filename: string }> }>).data;
-    }
-    return json as { images?: Array<{ id: string; url: string; filename: string }> };
+    const data = json && typeof json === 'object' && 'data' in json
+      ? (json as ApiResponse<unknown>).data
+      : json;
+    const uploadedImages = getListData<Record<string, unknown>>(data)
+      .filter((image) => image.id != null && image.uploadStatus !== 'FAILED')
+      .map(normalizePostImage);
+
+    return { images: uploadedImages };
   },
 
   deleteImage: (tripId: string, postId: string, imageId: string) =>

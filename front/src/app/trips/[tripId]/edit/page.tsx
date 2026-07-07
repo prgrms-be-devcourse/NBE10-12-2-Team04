@@ -215,6 +215,10 @@ function PostEditor({
       onToast('이미지가 추가되었습니다.');
     } catch {
       onToast('이미지 업로드에 실패했습니다.', 'error');
+    } finally {
+      if (fileRef.current) {
+        fileRef.current.value = '';
+      }
     }
   };
 
