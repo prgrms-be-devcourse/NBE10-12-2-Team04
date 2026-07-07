@@ -16,6 +16,7 @@ const mapOptions = {
   zoomControl: true,
   clickableIcons: false,
   gestureHandling: 'greedy',
+  minZoom: 4,
 };
 
 function isValidCoordinate(value: unknown) {
@@ -139,12 +140,19 @@ function FallbackTripMap({
       </div>
       {points.length > 1 && (
         <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <marker id="trip-path-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,4 L0,8 Z" fill="rgba(5,150,105,0.75)" />
+            </marker>
+          </defs>
           <polyline
             points={points.map((point) => `${point.left},${point.top}`).join(' ')}
             fill="none"
             stroke="rgba(5,150,105,0.45)"
             strokeWidth="1.5"
             strokeDasharray="4 4"
+            markerMid="url(#trip-path-arrow)"
+            markerEnd="url(#trip-path-arrow)"
             vectorEffect="non-scaling-stroke"
           />
         </svg>
@@ -202,6 +210,7 @@ function GoogleTripMap({
     lat: post.marker!.lat,
     lng: post.marker!.lng,
   })), [markerPosts]);
+  const pathKey = path.map((point) => `${point.lat},${point.lng}`).join('|');
   const center = path[0] ?? { lat: 37.5665, lng: 126.978 };
   const mapRef = useRef<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
@@ -211,7 +220,7 @@ function GoogleTripMap({
 
   useEffect(() => {
     if (!isLoaded || !mapRef.current || path.length === 0) return;
-    const bottomPadding = Math.max(120, window.innerHeight - sheetTop + 24);
+    const bottomPadding = Math.max(160, window.innerHeight - sheetTop + 64);
     const bounds = new google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
     if (path.length === 1) {
@@ -253,8 +262,20 @@ function GoogleTripMap({
     >
       {path.length > 1 && (
         <Polyline
+          key={pathKey}
           path={path}
           options={{
+            icons: [{
+              icon: {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 3,
+                strokeColor: '#059669',
+                fillColor: '#059669',
+                fillOpacity: 1,
+              },
+              offset: '100%',
+              repeat: '72px',
+            }],
             strokeColor: '#059669',
             strokeOpacity: 0.75,
             strokeWeight: 4,
@@ -275,7 +296,7 @@ function GoogleTripMap({
           <InfoWindow
             key={`${post.id}-preview`}
             position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
-            options={{ pixelOffset: new google.maps.Size(0, -34), disableAutoPan: false }}
+            options={{ pixelOffset: new google.maps.Size(0, -34), disableAutoPan: true }}
           >
             <PostPreviewCard post={post} />
           </InfoWindow>
@@ -381,7 +402,7 @@ export default function TripDetailPage() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [sheetTop, setSheetTop] = useState(220);
+  const [sheetTop, setSheetTop] = useState(420);
   const [message, setMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
@@ -434,6 +455,21 @@ export default function TripDetailPage() {
     loadTripDetail();
   }, [tripId]);
 
+  useEffect(() => {
+    const setInitialSheetPosition = () => {
+      setSheetTop(Math.max(340, window.innerHeight - 360));
+    };
+
+    setInitialSheetPosition();
+    window.addEventListener('resize', setInitialSheetPosition);
+    return () => window.removeEventListener('resize', setInitialSheetPosition);
+  }, []);
+
+  const handleSelectDay = (day: string) => {
+    setActiveDay(day);
+    setFocusedPostId(null);
+  };
+
   const handleLike = async () => {
     if (!isAuthenticated()) {
       router.push('/auth/login');
@@ -471,7 +507,7 @@ export default function TripDetailPage() {
   };
 
   const focusPost = (post: Post) => {
-    setActiveDay(post.date);
+    if (post.date !== activeDay) setActiveDay(post.date);
     setFocusedPostId(post.id);
     window.setTimeout(() => {
       postRefs.current[post.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -617,7 +653,7 @@ export default function TripDetailPage() {
           </div>
 
           {/* Day 탭 */}
-          {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={setActiveDay} />}
+          {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={handleSelectDay} />}
 
           {/* 타임라인 */}
           <div className="flex-1 overflow-y-auto px-5 pb-6">

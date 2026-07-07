@@ -23,10 +23,15 @@ const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const GOOGLE_MAPS_SCRIPT_ID = 'triptrace-google-map-script';
 const feedMapContainerStyle = { width: '100%', height: '100%' };
 const feedMapOptions = {
-  disableDefaultUI: true,
+  disableDefaultUI: false,
   zoomControl: true,
+  mapTypeControl: false,
+  streetViewControl: false,
+  fullscreenControl: false,
   clickableIcons: false,
   gestureHandling: 'greedy',
+  minZoom: 4,
+  maxZoom: 13,
 };
 const FEED_CLUSTER_ZOOM_THRESHOLD = 8;
 
@@ -371,6 +376,13 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
     mapRef.current?.setZoom(4);
   };
 
+  const changeZoom = (delta: number) => {
+    const currentZoom = mapRef.current?.getZoom() ?? mapZoom;
+    const nextZoom = Math.max(4, Math.min(13, currentZoom + delta));
+    mapRef.current?.setZoom(nextZoom);
+    setMapZoom(nextZoom);
+  };
+
   if (!googleMapsApiKey || loadError) {
     return <DecorativeMapBand trips={trips} fillHeight={fillHeight} />;
   }
@@ -406,19 +418,30 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
             mapRef.current = null;
           }}
         >
-          {showClusters && clusters.map((cluster) => (
-            <Marker
-              key={cluster.key}
-              position={cluster.position}
-              onClick={() => selectCluster(cluster.key)}
-              label={{
-                text: String(cluster.trips.length),
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-              }}
-              title={`${cluster.label} ${cluster.trips.length}개`}
-            />
+          {showClusters && clusters.map((cluster, index) => (
+            cluster.trips.length === 1 ? (
+              <TripPhotoMapMarker
+                key={cluster.key}
+                trip={cluster.trips[0]}
+                index={index}
+                position={cluster.position}
+                selected={selectedTrip?.id === cluster.trips[0].id}
+                onClick={() => setSelectedTrip(cluster.trips[0])}
+              />
+            ) : (
+              <Marker
+                key={cluster.key}
+                position={cluster.position}
+                onClick={() => selectCluster(cluster.key)}
+                label={{
+                  text: String(cluster.trips.length),
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                }}
+                title={`${cluster.label} ${cluster.trips.length}개`}
+              />
+            )
           ))}
           {!showClusters && visibleTrips.map((trip, index) => {
             const base = getTripLatLng(trip, index);
@@ -435,6 +458,26 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
             );
           })}
         </GoogleMap>
+      )}
+      {isLoaded && (
+        <div className="absolute right-5 top-5 z-20 overflow-hidden rounded-lg bg-white shadow ring-1 ring-black/10">
+          <button
+            type="button"
+            onClick={() => changeZoom(1)}
+            className="grid h-9 w-9 place-items-center border-b border-gray-100 text-xl font-semibold leading-none text-gray-700 hover:bg-gray-50"
+            aria-label="지도 확대"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => changeZoom(-1)}
+            className="grid h-9 w-9 place-items-center text-xl font-semibold leading-none text-gray-700 hover:bg-gray-50"
+            aria-label="지도 축소"
+          >
+            -
+          </button>
+        </div>
       )}
       {!fillHeight && (
         <button
@@ -617,6 +660,7 @@ export default function HomePage() {
   const dragRef = useRef<{ y: number; height: number } | null>(null);
   const sheetScrollRef = useRef<HTMLDivElement | null>(null);
   const recentSentinelRef = useRef<HTMLDivElement | null>(null);
+  const mapTrips = useMemo(() => uniqueTrips([...recent, ...topLiked]), [recent, topLiked]);
 
   useEffect(() => {
     const attachLikedStatus = async (trips: Trip[]) => {
@@ -751,15 +795,10 @@ export default function HomePage() {
     window.removeEventListener('mouseup', endSheetDrag);
   };
 
-  const mapBottomOffset = Math.max(180, sheetHeight - 18);
-
   return (
     <div className="relative h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
-      <div
-        className="absolute inset-x-0 top-0 transition-[bottom] duration-150"
-        style={{ bottom: mapBottomOffset }}
-      >
-        <MapBand trips={uniqueTrips([...recent, ...topLiked])} fillHeight />
+      <div className="absolute inset-0 z-0">
+        <MapBand trips={mapTrips} fillHeight />
       </div>
       <div
         className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden rounded-t-2xl bg-gray-50 shadow-2xl"
