@@ -505,7 +505,7 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
     <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-          <Heart size={20} className="fill-emerald-500 text-emerald-500" /> 좋아요 Top 10
+          <Heart size={20} className="fill-emerald-500 text-emerald-500" /> 월간 인기 여행 Top 10
           <Camera size={18} className="text-emerald-500" />
         </h2>
         <div className="flex gap-2">
@@ -521,7 +521,7 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
         {items.map((trip, index) => (
           <Link key={trip.id} href={trip.id.startsWith('fallback') ? '#' : `/trips/${trip.id}`} className="group relative h-[168px] w-[250px] shrink-0 overflow-hidden rounded-lg shadow-sm">
             <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full transition-transform group-hover:scale-105" />
-            <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">{index + 1}위</span>
+            <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">월간 {index + 1}위</span>
             <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-10 text-white">
               <p className="line-clamp-1 text-sm font-bold">{trip.title}</p>
               <p className="mt-1 flex items-center justify-between gap-2 text-xs text-white/85">
