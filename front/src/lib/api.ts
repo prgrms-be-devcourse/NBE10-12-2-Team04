@@ -266,6 +266,13 @@ export const userApi = {
     const user = await request<Record<string, unknown>>('/api/v1/users/me');
     return normalizeUser(user);
   },
+  updateMe: async (body: { username?: string; intro?: string; profileImageUrl?: string }) => {
+    const user = await request<Record<string, unknown>>('/api/v1/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return normalizeUser(user);
+  },
   getMyTrips: async (params?: { page?: number; size?: number }) => {
     const query = params ? `?page=${params.page ?? 0}&size=${params.size ?? 12}` : '';
     const result = await request<unknown>(`/api/v1/users/me/trips${query}`);

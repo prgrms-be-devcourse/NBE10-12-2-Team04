@@ -26,6 +26,9 @@ public class Member extends BaseEntity {
     @Column(length = 500)
     private String profileImageUrl;
 
+    @Column(length = 100)
+    private String intro;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private MemberStatus status = MemberStatus.ACTIVE;
@@ -46,7 +49,16 @@ public class Member extends BaseEntity {
         this.status = status;
     }
 
-    public void modifyProfile(String profileImageUrl) {
-        this.profileImageUrl = profileImageUrl;
+    // 부분 수정: null 인 값은 "변경하지 않음"으로 보고, 넘어온 값만 반영한다.
+    public void modifyInfo(String username, String intro, String profileImageUrl) {
+        if (username != null) {
+            this.username = username;
+        }
+        if (intro != null) {
+            this.intro = intro;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
     }
 }

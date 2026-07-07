@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  turbopack: {},
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
