@@ -120,19 +120,12 @@ public class MarkerController {
         );
     }
 
-    // 마커 삭제
     @DeleteMapping("/posts/markers/{markerId}")
     public RsData<Void> deleteMarker (
         @PathVariable Long markerId,
         @AuthenticationPrincipal Long memberId
     ) {
-
         markerService.deleteMarker(markerId, memberId);
-
-        return new RsData<>(
-            "200-1",
-            "마커가 삭제되었습니다.",
-            null
-        );
+        return new RsData<>("400-1", "마커는 삭제할 수 없습니다.", null);
     }
 }

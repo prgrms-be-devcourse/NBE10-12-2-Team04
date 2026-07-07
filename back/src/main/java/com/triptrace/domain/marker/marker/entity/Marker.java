@@ -24,10 +24,10 @@ public class Marker extends BaseEntity {
     @JoinColumn(name = "post_id", nullable = false, unique = true)
     private Post post;
 
-    @Column(precision = 10, scale = 7, nullable = false)    // 정수 3자리, 소수 7자리
+    @Column(precision = 10, scale = 7)    // 정수 3자리, 소수 7자리
     private BigDecimal centerLat;
 
-    @Column(precision = 10, scale = 7, nullable = false)
+    @Column(precision = 10, scale = 7)
     private BigDecimal centerLng;
 
     @Column(length = 100)

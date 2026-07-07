@@ -21,6 +21,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.BufferedReader;
@@ -44,10 +45,13 @@ public class DevInitData {
     private final MarkerRepository markerRepository;
     private final ImageRepository imageRepository;
     private final TripLikeRepository tripLikeRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Bean
     ApplicationRunner devInitDataApplicationRunner() {
         return args -> {
+            relaxMarkerCoordinateColumns();
+
             if (memberRepository.existsByEmail("user1@test.com")) return;
 
             // MEMBER
@@ -76,6 +80,15 @@ public class DevInitData {
 
             printSeedInfo(trips);
         };
+    }
+
+    private void relaxMarkerCoordinateColumns() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE marker ALTER COLUMN center_lat DROP NOT NULL");
+            jdbcTemplate.execute("ALTER TABLE marker ALTER COLUMN center_lng DROP NOT NULL");
+        } catch (Exception ignored) {
+            // Fresh schemas already follow the entity mapping, and other DBs may not need this dev-only patch.
+        }
     }
 
 

@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,13 +63,17 @@ class PostServiceTest {
 
         PostResponse response = postService.create(trip.getId(), owner.getId(), new PostCreateRequest(
             LocalDate.of(2026, 1, 2),
+            LocalTime.of(9, 30),
             "둘째 날",
             "아라시야마에 갔다."
         ));
 
         Post found = postRepository.findById(response.id()).orElseThrow();
+        Marker marker = markerRepository.findByPostId(response.id()).orElseThrow();
         assertThat(found.getTrip().getId()).isEqualTo(trip.getId());
         assertThat(found.getDate()).isEqualTo(LocalDate.of(2026, 1, 2));
+        assertThat(marker.getVisitedAt()).isEqualTo(LocalDateTime.of(2026, 1, 2, 9, 30));
+        assertThat(response.time()).isEqualTo(LocalTime.of(9, 30));
         assertThat(found.getTitle()).isEqualTo("둘째 날");
     }
 
@@ -81,6 +86,7 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.create(trip.getId(), other.getId(), new PostCreateRequest(
             LocalDate.of(2026, 1, 2),
+            LocalTime.of(9, 30),
             "둘째 날",
             "아라시야마에 갔다."
         )))
@@ -89,19 +95,28 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("여행기 게시물 목록을 날짜 오름차순으로 조회한다.")
+    @DisplayName("여행기 게시물 목록을 날짜와 시간 오름차순으로 조회한다.")
     void findPostsByTripId() {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "교토 여행");
         createPost(trip, LocalDate.of(2026, 1, 3), "셋째 날");
         createPost(trip, LocalDate.of(2026, 1, 1), "첫째 날");
         createPost(trip, LocalDate.of(2026, 1, 2), "둘째 날");
+        Post morningPost = postRepository.save(new Post(trip, LocalDate.of(2026, 1, 2), "둘째 날 오전", "memo"));
+        markerRepository.save(new Marker(
+            morningPost,
+            null,
+            null,
+            null,
+            LocalDateTime.of(2026, 1, 2, 8, 30),
+            MarkerSource.MANUAL
+        ));
 
         List<PostResponse> responses = postService.findPostsByTripId(trip.getId(), owner.getId());
 
         assertThat(responses)
             .extracting(PostResponse::title)
-            .containsExactly("첫째 날", "둘째 날", "셋째 날");
+            .containsExactly("첫째 날", "둘째 날 오전", "둘째 날", "셋째 날");
     }
 
     @Test
@@ -150,6 +165,7 @@ class PostServiceTest {
 
         PostResponse response = postService.modifyPost(post.getId(), owner.getId(), new PostModifyRequest(
             LocalDate.of(2026, 1, 2),
+            null,
             "수정 후",
             "수정된 메모"
         ));
