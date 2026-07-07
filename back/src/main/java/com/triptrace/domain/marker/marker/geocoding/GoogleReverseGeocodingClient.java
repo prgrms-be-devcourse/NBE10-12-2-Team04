@@ -85,7 +85,7 @@ public class GoogleReverseGeocodingClient implements ReverseGeocodingClient {
         }
 
         JsonNode addressComponents = firstResult.path("address_components");
-        String country = findLongNameByType(addressComponents, "country");
+        String country = normalizeCountryName(findLongNameByType(addressComponents, "country"));
         String city = extractCityName(addressComponents);
         String regionName = extractRegionName(addressComponents);
         if (StringUtils.hasText(regionName)) {
@@ -97,6 +97,17 @@ public class GoogleReverseGeocodingClient implements ReverseGeocodingClient {
             city,
             trimPlaceName(firstResult.path("formatted_address").asText(null))
         );
+    }
+
+    private String normalizeCountryName(String country) {
+        if (!StringUtils.hasText(country)) {
+            return null;
+        }
+
+        return switch (country) {
+            case "대한민국", "Republic of Korea", "South Korea" -> "한국";
+            default -> country;
+        };
     }
 
     private String extractCityName(JsonNode addressComponents) {

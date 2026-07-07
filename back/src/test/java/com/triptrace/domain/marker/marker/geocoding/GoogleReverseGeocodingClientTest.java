@@ -126,7 +126,7 @@ class GoogleReverseGeocodingClientTest {
             new BigDecimal("129.0647")
         );
 
-        assertThat(location.country()).isEqualTo("대한민국");
+        assertThat(location.country()).isEqualTo("한국");
         assertThat(location.city()).isEqualTo("부산광역시");
         assertThat(location.placeName()).isEqualTo("부산광역시 남구 문현동");
         server.verify();
