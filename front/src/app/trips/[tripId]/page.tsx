@@ -199,11 +199,13 @@ function GoogleTripMap({
   selectedPostId,
   onMarkerSelect,
   sheetTop,
+  mapKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
   sheetTop: number;
+  mapKey: string;
 }) {
   const markerPosts = useMemo(() => getMarkerPosts(posts), [posts]);
   const path = useMemo(() => markerPosts.map((post) => ({
@@ -249,6 +251,7 @@ function GoogleTripMap({
 
   return (
     <GoogleMap
+      key={mapKey}
       mapContainerStyle={mapContainerStyle}
       center={center}
       zoom={12}
@@ -313,17 +316,19 @@ function TripMap({
   selectedPostId,
   onMarkerSelect,
   sheetTop,
+  mapKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
   sheetTop: number;
+  mapKey: string;
 }) {
   if (!googleMapsApiKey || getMarkerPosts(posts).length === 0) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
   }
 
-  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} />;
+  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} mapKey={mapKey} />;
 }
 
 // ── Day 탭 ────────────────────────────────────────────────────────────
@@ -380,7 +385,7 @@ function TimelineItem({ post, active }: { post: Post; active: boolean }) {
         {/* 이미지 그리드 */}
         {images.length > 0 && (
           <div className="mt-2 flex h-44 gap-2 overflow-x-auto pb-1">
-            {images.slice(0, 3).map((img) =>
+            {images.map((img) =>
               img.url ? (
                 <img key={img.id} src={img.url} alt="" className="h-full w-auto max-w-none rounded-md object-cover" />
               ) : null,
@@ -476,7 +481,7 @@ export default function TripDetailPage() {
   const toggleMapExpanded = () => {
     const nextExpanded = !mapExpanded;
     setMapExpanded(nextExpanded);
-    setSheetTop(nextExpanded ? Math.max(160, window.innerHeight - 240) : Math.max(340, window.innerHeight - 360));
+    setSheetTop(nextExpanded ? window.innerHeight - 220 : Math.max(340, window.innerHeight - 360));
   };
 
   const handleLike = async () => {
@@ -579,7 +584,7 @@ export default function TripDetailPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
       <div className="absolute inset-0 z-0">
-        <TripMap posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} />
+        <TripMap posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} mapKey={activeDay} />
       </div>
 
       {/* 상단 네비 */}
@@ -672,7 +677,7 @@ export default function TripDetailPage() {
           {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={handleSelectDay} />}
 
           {/* 타임라인 */}
-          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 pb-6">
+          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dayPosts.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">이 날의 기록이 없습니다.</p>
             ) : (

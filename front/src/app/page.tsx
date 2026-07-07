@@ -49,14 +49,40 @@ const fallbackCoords: Record<string, { lat: number; lng: number }> = {
   뉴욕: { lat: 40.7128, lng: -74.006 },
   부산: { lat: 35.1796, lng: 129.0756 },
   교토: { lat: 35.0116, lng: 135.7681 },
+  서울: { lat: 37.5665, lng: 126.978 },
+  도쿄: { lat: 35.6762, lng: 139.6503 },
+  오사카: { lat: 34.6937, lng: 135.5023 },
+  후쿠오카: { lat: 33.5902, lng: 130.4017 },
+  런던: { lat: 51.5072, lng: -0.1276 },
+  로마: { lat: 41.9028, lng: 12.4964 },
+  방콕: { lat: 13.7563, lng: 100.5018 },
+  한국: { lat: 36.5, lng: 127.8 },
+  일본: { lat: 36.2048, lng: 138.2529 },
+  프랑스: { lat: 46.2276, lng: 2.2137 },
+  미국: { lat: 39.8283, lng: -98.5795 },
+  그리스: { lat: 39.0742, lng: 21.8243 },
+  베트남: { lat: 14.0583, lng: 108.2772 },
 };
 
 function uniqueTrips(trips: Trip[]) {
   return Array.from(new Map(trips.map((trip) => [trip.id, trip])).values());
 }
 
+function isCurrentMonthTrip(trip: Trip) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const start = new Date(trip.startDate);
+  const end = new Date(trip.endDate || trip.startDate);
+
+  if (Number.isNaN(start.getTime())) return false;
+  if (Number.isNaN(end.getTime())) return start >= monthStart && start <= monthEnd;
+
+  return start <= monthEnd && end >= monthStart;
+}
+
 function getTripPosition(trip: Partial<Trip>, index: number) {
-  const fallback = fallbackCoords[trip.city ?? ''] ?? fallbackCoords[fallbackPlaces[index % fallbackPlaces.length].city];
+  const fallback = getFallbackLatLng(trip, index);
   const lat = trip.representativeLat ?? fallback.lat;
   const lng = trip.representativeLng ?? fallback.lng;
 
@@ -67,11 +93,25 @@ function getTripPosition(trip: Partial<Trip>, index: number) {
 }
 
 function getTripLatLng(trip: Partial<Trip>, index: number) {
-  const fallback = fallbackCoords[trip.city ?? ''] ?? fallbackCoords[fallbackPlaces[index % fallbackPlaces.length].city];
+  const fallback = getFallbackLatLng(trip, index);
 
   return {
     lat: trip.representativeLat ?? fallback.lat,
     lng: trip.representativeLng ?? fallback.lng,
+  };
+}
+
+function getFallbackLatLng(trip: Partial<Trip>, index: number) {
+  const direct = fallbackCoords[trip.city ?? ''] ?? fallbackCoords[trip.country ?? ''];
+  if (direct) return direct;
+
+  const seed = `${trip.country ?? ''}${trip.city ?? ''}${trip.title ?? ''}` || String(index);
+  const hash = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const base = fallbackCoords[fallbackPlaces[index % fallbackPlaces.length].city];
+
+  return {
+    lat: base.lat + ((hash % 120) - 60) / 100,
+    lng: base.lng + (((hash / 7) % 120) - 60) / 100,
   };
 }
 
@@ -313,12 +353,24 @@ function DecorativeMapBand({ trips, fillHeight = false }: { trips: Trip[]; fillH
   );
 }
 
-function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: boolean }) {
+function MapBand({
+  trips,
+  fillHeight = false,
+  bottomInset = 0,
+}: {
+  trips: Trip[];
+  fillHeight?: boolean;
+  bottomInset?: number;
+}) {
   const [zoomedCluster, setZoomedCluster] = useState<string | null>(null);
   const [focusedTrips, setFocusedTrips] = useState<Trip[] | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [mapZoom, setMapZoom] = useState(4);
+  const [pendingMapAction, setPendingMapAction] = useState<{
+    position: { lat: number; lng: number };
+    zoom?: number;
+  } | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const source = useMemo(() => trips.length ? uniqueTrips(trips) : fallbackPlaces.map((place, index) => ({
     id: `map-fallback-${index}`,
@@ -374,24 +426,31 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
     if (!isLoaded || !mapRef.current || source.length === 0 || zoomedCluster) return;
     const bounds = new google.maps.LatLngBounds();
     source.forEach((trip, index) => bounds.extend(getTripLatLng(trip, index)));
+    const maxMapPadding = typeof window === 'undefined' ? 360 : Math.max(220, Math.floor(window.innerHeight * 0.45));
+    const padding = {
+      top: 96,
+      right: 72,
+      bottom: fillHeight ? Math.min(maxMapPadding, Math.max(140, bottomInset + 24)) : 96,
+      left: 72,
+    };
+
     if (source.length === 1) {
       mapRef.current.setCenter(getTripLatLng(source[0], 0));
       mapRef.current.setZoom(6);
       return;
     }
-    mapRef.current.fitBounds(bounds, 96);
-  }, [isLoaded, source, zoomedCluster]);
+    mapRef.current.fitBounds(bounds, padding);
+  }, [bottomInset, fillHeight, isLoaded, source, zoomedCluster]);
 
-  const selectCluster = (clusterKey: string) => {
-    const cluster = clusters.find((item) => item.key === clusterKey);
-    setZoomedCluster(clusterKey);
-    setFocusedTrips(cluster?.trips ?? null);
-    setSelectedTrip(null);
-    if (cluster && mapRef.current) {
-      mapRef.current.panTo(cluster.position);
-      mapRef.current.setZoom(FEED_CLUSTER_ZOOM_THRESHOLD + 1);
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || !pendingMapAction) return;
+
+    mapRef.current.panTo(pendingMapAction.position);
+    if (typeof pendingMapAction.zoom === 'number') {
+      mapRef.current.setZoom(pendingMapAction.zoom);
     }
-  };
+    setPendingMapAction(null);
+  }, [isLoaded, pendingMapAction]);
 
   const resetMap = () => {
     setZoomedCluster(null);
@@ -450,13 +509,21 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
                 index={index}
                 position={cluster.position}
                 selected={selectedTrip?.id === cluster.trips[0].id}
-                onClick={() => setSelectedTrip(cluster.trips[0])}
+                onClick={() => {
+                  setSelectedTrip(cluster.trips[0]);
+                  setPendingMapAction({ position: cluster.position });
+                }}
               />
             ) : (
               <Marker
                 key={cluster.key}
                 position={cluster.position}
-                onClick={() => selectCluster(cluster.key)}
+                onClick={() => {
+                  setZoomedCluster(cluster.key);
+                  setFocusedTrips(cluster.trips);
+                  setSelectedTrip(null);
+                  setPendingMapAction({ position: cluster.position, zoom: FEED_CLUSTER_ZOOM_THRESHOLD + 1 });
+                }}
                 label={{
                   text: String(cluster.trips.length),
                   color: '#ffffff',
@@ -479,7 +546,10 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
                 index={index}
                 position={position}
                 selected={selectedTrip?.id === trip.id}
-                onClick={() => setSelectedTrip(trip)}
+                onClick={() => {
+                  setSelectedTrip(trip);
+                  setPendingMapAction({ position });
+                }}
               />
             );
           })}
@@ -552,19 +622,7 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
 
 function TopLikedCarousel({ trips }: { trips: Trip[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const items = useMemo(() => trips.length ? trips.slice(0, 10) : fallbackPlaces.map((p, i) => ({
-    id: `fallback-${i}`,
-    title: `${p.city} 여행기`,
-    city: p.city,
-    country: p.country,
-    startDate: '',
-    endDate: '',
-    isPublic: true,
-    likeCount: [12345, 9876, 8765, 7654][i],
-    recordCount: 0,
-    author: { id: '', nickname: 'Traveler' },
-    createdAt: '',
-  } as Trip)), [trips]);
+  const items = useMemo(() => trips.slice(0, 10), [trips]);
 
   const scroll = (direction: -1 | 1) => {
     scrollRef.current?.scrollBy({ left: direction * 300, behavior: 'smooth' });
@@ -586,23 +644,29 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
           </button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex gap-5 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {items.map((trip, index) => (
-          <Link key={trip.id} href={trip.id.startsWith('fallback') ? '#' : `/trips/${trip.id}`} className="group relative h-[168px] w-[250px] shrink-0 overflow-hidden rounded-lg shadow-sm">
-            <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full transition-transform group-hover:scale-105" />
-            <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">월간 {index + 1}위</span>
-            <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-10 text-white">
-              <p className="line-clamp-1 text-sm font-bold">{trip.title}</p>
-              <p className="mt-1 flex items-center justify-between gap-2 text-xs text-white/85">
-                <span className="truncate">{trip.city}, {trip.country}</span>
-                <span className="flex shrink-0 items-center gap-1">
-                  <Heart size={12} fill="white" /> {trip.likeCount ?? 0}
-                </span>
-              </p>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {items.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-200 py-10 text-center text-sm text-gray-400">
+          이번 달 인기 여행기가 아직 없습니다.
+        </div>
+      ) : (
+        <div ref={scrollRef} className="flex gap-5 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {items.map((trip, index) => (
+            <Link key={trip.id} href={`/trips/${trip.id}`} className="group relative h-[168px] w-[250px] shrink-0 overflow-hidden rounded-lg shadow-sm">
+              <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full transition-transform group-hover:scale-105" />
+              <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">월간 {index + 1}위</span>
+              <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-10 text-white">
+                <p className="line-clamp-1 text-sm font-bold">{trip.title}</p>
+                <p className="mt-1 flex items-center justify-between gap-2 text-xs text-white/85">
+                  <span className="truncate">{trip.city}, {trip.country}</span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <Heart size={12} fill="white" /> {trip.likeCount ?? 0}
+                  </span>
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -674,39 +738,68 @@ export default function HomePage() {
   const recentSentinelRef = useRef<HTMLDivElement | null>(null);
   const mapTrips = useMemo(() => uniqueTrips([...recent, ...topLiked]), [recent, topLiked]);
 
-  useEffect(() => {
-    const attachLikedStatus = async (trips: Trip[]) => {
-      if (!isAuthenticated()) return trips.map((trip) => ({ ...trip, liked: false }));
+  const attachLikedStatus = useCallback(async (trips: Trip[]) => {
+    if (!isAuthenticated()) return trips.map((trip) => ({ ...trip, liked: false }));
 
-      return Promise.all(
-        trips.map(async (trip) => {
-          if (trip.id.startsWith('fallback') || trip.id.startsWith('recent')) return trip;
+    return Promise.all(
+      trips.map(async (trip) => {
+        if (trip.id.startsWith('fallback') || trip.id.startsWith('recent')) return trip;
 
-          try {
-            const status = await likeApi.getMine(trip.id);
-            return { ...trip, liked: status.liked };
-          } catch {
-            return { ...trip, liked: false };
-          }
-        }),
-      );
-    };
+        try {
+          const status = await likeApi.getMine(trip.id);
+          return { ...trip, liked: status.liked };
+        } catch {
+          return { ...trip, liked: false };
+        }
+      }),
+    );
+  }, []);
 
-    async function loadFeeds() {
-      const [topLikedTrips, recentTrips] = await Promise.all([
-        feedApi.getTopLiked(),
-        feedApi.getRecent({ page: 0, size: 6 }),
-      ]);
+  const loadFeeds = useCallback(async () => {
+    const [topLikedResult, recentResult, monthlyCandidateResult] = await Promise.allSettled([
+      feedApi.getTopLiked(),
+      feedApi.getRecent({ page: 0, size: 6 }),
+      feedApi.getRecent({ page: 0, size: 50 }),
+    ]);
 
-      setTopLiked(await attachLikedStatus(topLikedTrips as Trip[]));
-      const normalizedRecent = await attachLikedStatus(recentTrips as Trip[]);
+    if (topLikedResult.status === 'fulfilled') {
+      const monthlyCandidates = monthlyCandidateResult.status === 'fulfilled'
+        ? monthlyCandidateResult.value as Trip[]
+        : [];
+      const normalizedTopLiked = await attachLikedStatus(uniqueTrips([
+        ...(topLikedResult.value as Trip[]),
+        ...monthlyCandidates,
+      ]));
+      const nextTopLiked = uniqueTrips(normalizedTopLiked)
+        .filter(isCurrentMonthTrip)
+        .sort((a, b) => (b.likeCount ?? 0) - (a.likeCount ?? 0))
+        .slice(0, 10);
+      setTopLiked(nextTopLiked);
+    }
+
+    if (recentResult.status === 'fulfilled') {
+      const normalizedRecent = await attachLikedStatus(recentResult.value as Trip[]);
       setRecent(normalizedRecent);
       setRecentHasMore(normalizedRecent.length >= 6);
       setRecentPage(0);
     }
+  }, [attachLikedStatus]);
 
-    loadFeeds().catch(() => {});
-  }, []);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void loadFeeds();
+    }, 0);
+
+    const handlePageShow = () => {
+      void loadFeeds();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [loadFeeds]);
 
   const handleLike = async (trip: Trip) => {
     if (trip.id.startsWith('recent')) return;
@@ -810,7 +903,7 @@ export default function HomePage() {
   return (
     <div className="relative h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
       <div className="absolute inset-0 z-0">
-        <MapBand trips={mapTrips} fillHeight />
+        <MapBand trips={mapTrips} fillHeight bottomInset={sheetHeight} />
       </div>
       <div
         className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden rounded-t-2xl bg-gray-50 shadow-2xl"
