@@ -70,6 +70,18 @@ public class Trip extends BaseEntity {
         this.representativeImage = representativeImage;
     }
 
+    public void changeAutoRecordDefaults(
+        String country,
+        String city,
+        LocalDateTime startDate,
+        LocalDateTime endDate
+    ) {
+        this.country = country;
+        this.city = city;
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
     public Trip(
         Member owner,
         String title,

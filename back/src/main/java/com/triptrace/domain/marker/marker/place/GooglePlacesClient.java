@@ -68,6 +68,27 @@ public class GooglePlacesClient {
         }
     }
 
+    public List<PlaceCandidateResponse> searchPlaces(String keyword) {
+        if (!StringUtils.hasText(apiKey) || !StringUtils.hasText(keyword)) {
+            return List.of();
+        }
+
+        try {
+            JsonNode response = restClient.post()
+                .uri("/v1/places:searchText")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Goog-Api-Key", apiKey)
+                .header("X-Goog-FieldMask", FIELD_MASK)
+                .body(createTextSearchRequestBody(keyword))
+                .retrieve()
+                .body(JsonNode.class);
+
+            return extractPlaceCandidates(response);
+        } catch (RestClientException e) {
+            return List.of();
+        }
+    }
+
     private Map<String, Object> createRequestBody(BigDecimal latitude, BigDecimal longitude) {
         return Map.of(
             "maxResultCount", MAX_RESULT_COUNT,
@@ -80,6 +101,14 @@ public class GooglePlacesClient {
                     "radius", SEARCH_RADIUS_METERS
                 )
             )
+        );
+    }
+
+    private Map<String, Object> createTextSearchRequestBody(String keyword) {
+        return Map.of(
+            "textQuery", keyword,
+            "languageCode", "ko",
+            "maxResultCount", MAX_RESULT_COUNT
         );
     }
 

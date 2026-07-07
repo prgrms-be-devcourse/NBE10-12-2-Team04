@@ -5,6 +5,7 @@ import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.marker.marker.entity.Marker;
 import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingClient;
+import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingResult;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.repository.PostRepository;
@@ -64,6 +65,7 @@ public class TripAutoRecordService {
         // 날짜를 먼저 나눈 뒤, 같은 날짜 안에서 촬영 시간 간격을 기준으로 세부 클러스터를 만든다.
         List<List<Image>> clusters = clusterImages(usableImages);
         List<TripAutoRecordResponse.GeneratedRecord> records = new ArrayList<>();
+        ReverseGeocodingResult firstMarkerLocation = null;
 
         for (List<Image> cluster : clusters) {
             // 현재는 클러스터의 첫 번째 이미지를 대표 이미지로 사용
@@ -72,10 +74,14 @@ public class TripAutoRecordService {
             LocalDate recordDate = representativeImage.getCapturedAt().toLocalDate();
 
             // 장소명은 대표 이미지 GPS를 역지오코딩해서 채운다. 실패하면 기본 문구로 두고 생성은 계속 진행한다.
-            String placeName = reverseGeocodingClient.findPlaceName(
+            ReverseGeocodingResult location = reverseGeocodingClient.findLocation(
                 representativeImage.getGpsLat(),
                 representativeImage.getGpsLng()
             );
+            if (firstMarkerLocation == null) {
+                firstMarkerLocation = location;
+            }
+            String placeName = location == null ? null : location.placeName();
             String postTitle = "%s 근처".formatted(StringUtils.hasText(placeName) ? placeName : "위치 미정");
 
             // 클러스터 하나를 여행 기록 게시물 하나로 변환
@@ -123,6 +129,8 @@ public class TripAutoRecordService {
             ));
         }
 
+        applyTripAutoRecordDefaults(trip, usableImages, firstMarkerLocation);
+
         return new TripAutoRecordResponse(
             trip.getId(),
             records.size(), //생성된 post카운트
@@ -130,6 +138,28 @@ public class TripAutoRecordService {
             usableImages.size(),
             images.size() - usableImages.size(),
             records
+        );
+    }
+
+    private void applyTripAutoRecordDefaults(
+        Trip trip,
+        List<Image> usableImages,
+        ReverseGeocodingResult firstMarkerLocation
+    ) {
+        if (usableImages.isEmpty()) {
+            return;
+        }
+
+        Image firstImage = usableImages.getFirst();
+        Image lastImage = usableImages.getLast();
+        String country = firstMarkerLocation == null ? null : firstMarkerLocation.country();
+        String city = firstMarkerLocation == null ? null : firstMarkerLocation.city();
+
+        trip.changeAutoRecordDefaults(
+            StringUtils.hasText(country) ? country : trip.getCountry(),
+            StringUtils.hasText(city) ? city : trip.getCity(),
+            firstImage.getCapturedAt(),
+            lastImage.getCapturedAt()
         );
     }
 

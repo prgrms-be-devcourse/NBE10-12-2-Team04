@@ -13,7 +13,9 @@ import com.triptrace.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -86,6 +88,22 @@ public class MarkerService {
 
         // 자동 생성 때는 지역명만 저장하고, 사용자가 수정 화면에서 펼칠 때만 주변 상호명을 조회한다.
         return googlePlacesClient.findNearbyPlaces(marker.getCenterLat(), marker.getCenterLng());
+    }
+
+    public List<PlaceCandidateResponse> searchPlaces(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            throw new ServiceException("400-1", "검색어를 입력해주세요.");
+        }
+
+        return googlePlacesClient.searchPlaces(keyword);
+    }
+
+    public List<PlaceCandidateResponse> findNearbyPlaces(BigDecimal latitude, BigDecimal longitude) {
+        if (latitude == null || longitude == null) {
+            throw new ServiceException("400-1", "좌표를 입력해주세요.");
+        }
+
+        return googlePlacesClient.findNearbyPlaces(latitude, longitude);
     }
 
     // 수정

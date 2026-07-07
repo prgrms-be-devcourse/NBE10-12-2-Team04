@@ -2,6 +2,8 @@ package com.triptrace.domain.trip.tripAuto.service;
 
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.entity.UploadStatus;
+import com.triptrace.domain.marker.marker.geocoding.ReverseGeocodingResult;
+import com.triptrace.domain.trip.trip.entity.Trip;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -36,6 +38,42 @@ class TripAutoRecordServiceTest {
         assertThat(clusters).hasSize(2);
         assertThat(clusters.get(0)).containsExactly(first, second);
         assertThat(clusters.get(1)).containsExactly(third);
+    }
+
+    @Test
+    @DisplayName("자동 생성 후 Trip 국가/도시는 첫 마커 기준, 기간은 첫 사진과 마지막 사진 기준으로 보정한다")
+    void applyTripAutoRecordDefaults() {
+        TripAutoRecordService tripAutoRecordService = new TripAutoRecordService(
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+        Trip trip = new Trip(
+            null,
+            "부산 여행",
+            "기존 국가",
+            "기존 도시",
+            LocalDateTime.of(2026, 1, 1, 0, 0),
+            LocalDateTime.of(2026, 1, 2, 0, 0),
+            true
+        );
+        Image first = imageCapturedAt(LocalDateTime.of(2026, 6, 27, 19, 37, 55));
+        Image last = imageCapturedAt(LocalDateTime.of(2026, 6, 30, 10, 15));
+
+        ReflectionTestUtils.invokeMethod(
+            tripAutoRecordService,
+            "applyTripAutoRecordDefaults",
+            trip,
+            List.of(first, last),
+            new ReverseGeocodingResult("대한민국", "부산광역시", "부산광역시 남구 문현동")
+        );
+
+        assertThat(trip.getCountry()).isEqualTo("대한민국");
+        assertThat(trip.getCity()).isEqualTo("부산광역시");
+        assertThat(trip.getStartDate()).isEqualTo(LocalDateTime.of(2026, 6, 27, 19, 37, 55));
+        assertThat(trip.getEndDate()).isEqualTo(LocalDateTime.of(2026, 6, 30, 10, 15));
     }
 
     private Image imageCapturedAt(LocalDateTime capturedAt) {

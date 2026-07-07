@@ -110,9 +110,21 @@ function normalizeMarker(marker: Record<string, unknown> | null | undefined) {
     placeName: String(marker.placeName ?? '위치 미정'),
     lat: Number(marker.lat ?? marker.centerLat),
     lng: Number(marker.lng ?? marker.centerLng),
+    representativeImageId: marker.representativeImageId == null ? undefined : String(marker.representativeImageId),
     representativeImageUrl: toAssetUrl(marker.representativeImageUrl ?? marker.representativeThumbnailUrl ?? marker.thumbnailUrl),
     visitTime: typeof marker.visitTime === 'string' ? marker.visitTime : marker.visitedAt,
     source: typeof marker.source === 'string' ? marker.source : undefined,
+  };
+}
+
+function normalizePlaceCandidate(candidate: Record<string, unknown>) {
+  return {
+    placeId: candidate.placeId == null ? undefined : String(candidate.placeId),
+    name: String(candidate.name ?? candidate.placeName ?? ''),
+    address: typeof candidate.address === 'string' ? candidate.address : undefined,
+    latitude: Number(candidate.latitude ?? candidate.lat),
+    longitude: Number(candidate.longitude ?? candidate.lng),
+    types: Array.isArray(candidate.types) ? candidate.types.map(String) : undefined,
   };
 }
 
@@ -457,6 +469,27 @@ export const postApi = {
 
 // ---------- Markers ----------
 export const markerApi = {
+  create: (
+    postId: string,
+    body: {
+      placeName: string;
+      lat: number;
+      lng: number;
+      visitTime?: string;
+      source?: string;
+    },
+  ) =>
+    request<Record<string, unknown>>(`/api/v1/posts/${postId}/markers`, {
+      method: 'POST',
+      body: JSON.stringify({
+        centerLat: body.lat,
+        centerLng: body.lng,
+        placeName: body.placeName,
+        visitedAt: body.visitTime,
+        source: body.source ?? 'MANUAL',
+      }),
+    }).then(normalizeMarker),
+
   update: (
     _postId: string,
     markerId: string,
@@ -483,5 +516,16 @@ export const markerApi = {
     request(`/api/v1/posts/markers/${markerId}`, { method: 'DELETE' }),
 
   getCandidates: (markerId: string) =>
-    request<unknown[]>(`/api/v1/posts/markers/${markerId}/place-candidates`),
+    request<unknown[]>(`/api/v1/posts/markers/${markerId}/place-candidates`)
+      .then((items) => items.map((item) => normalizePlaceCandidate(item as Record<string, unknown>))),
+};
+
+export const placeApi = {
+  search: (keyword: string) =>
+    request<unknown[]>(`/api/v1/places/search?keyword=${encodeURIComponent(keyword)}`)
+      .then((items) => items.map((item) => normalizePlaceCandidate(item as Record<string, unknown>))),
+
+  nearby: (latitude: number, longitude: number) =>
+    request<unknown[]>(`/api/v1/places/nearby?latitude=${latitude}&longitude=${longitude}`)
+      .then((items) => items.map((item) => normalizePlaceCandidate(item as Record<string, unknown>))),
 };

@@ -62,9 +62,19 @@ export interface Marker {
   placeName: string;
   lat: number;
   lng: number;
+  representativeImageId?: string;
   representativeImageUrl?: string;
   visitTime?: string;
   source?: string;
+}
+
+export interface PlaceCandidate {
+  placeId?: string;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  types?: string[];
 }
 
 export interface AutoRecord {
