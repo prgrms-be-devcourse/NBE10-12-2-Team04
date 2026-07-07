@@ -30,7 +30,15 @@ function toTimeInput(value: unknown) {
 function withDerivedPostTime(post: Post) {
   return {
     ...post,
-    time: post.time ?? toTimeInput(post.marker?.visitTime),
+    time: toTimeInput(post.marker?.visitTime ?? post.time),
+  };
+}
+
+function withMarkerPostTime(post: Post, marker: Marker | null) {
+  return {
+    ...post,
+    marker: marker ?? undefined,
+    time: toTimeInput(marker?.visitTime) ?? toTimeInput(post.time),
   };
 }
 
@@ -38,6 +46,41 @@ function getDefaultVisitTime(post: Post) {
   if (post.marker?.visitTime) return post.marker.visitTime;
   if (post.time) return post.time.includes('T') ? post.time : `${post.date}T${post.time}`;
   return post.date ? `${post.date}T00:00` : undefined;
+}
+
+function combinePostDateAndTime(post: Post, time?: string) {
+  if (!post.date || !time) return undefined;
+  return `${post.date}T${time}`;
+}
+
+function alignMarkerVisitDate(post: Post, visitTime?: string) {
+  const time = toTimeInput(visitTime);
+  return combinePostDateAndTime(post, time);
+}
+
+function formatDateLabel(date: string) {
+  return date ? date.replaceAll('-', '. ') : '날짜 미정';
+}
+
+function getPostTimeLabel(post: Post) {
+  return toTimeInput(post.marker?.visitTime) ?? post.time ?? '시간 미정';
+}
+
+function getPostSortValue(post: Post) {
+  return `${post.date || '9999-12-31'}T${toTimeInput(post.marker?.visitTime) || post.time || '99:99'}`;
+}
+
+function sortPosts(posts: Post[]) {
+  return [...posts].sort((a, b) => {
+    const byDateTime = getPostSortValue(a).localeCompare(getPostSortValue(b));
+    if (byDateTime !== 0) return byDateTime;
+    const numericA = Number(a.id);
+    const numericB = Number(b.id);
+    if (Number.isFinite(numericA) && Number.isFinite(numericB)) {
+      return numericA - numericB;
+    }
+    return a.id.localeCompare(b.id);
+  });
 }
 
 function getTripImagesFromPosts(posts: Post[]) {
@@ -91,6 +134,16 @@ function PostList({
   onDelete: (id: string) => void;
   onCreate: () => void;
 }) {
+  const groupedPosts = posts.reduce<Array<{ date: string; posts: Post[] }>>((groups, post) => {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.date === post.date) {
+      lastGroup.posts.push(post);
+    } else {
+      groups.push({ date: post.date, posts: [post] });
+    }
+    return groups;
+  }, []);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -107,45 +160,60 @@ function PostList({
         {posts.length === 0 ? (
           <p className="text-center text-gray-400 text-xs py-8">기록이 없습니다.</p>
         ) : (
-          posts.map((post) => (
-            <div
-              key={post.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(post)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onSelect(post);
-                }
-              }}
-              className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${selectedId === post.id ? 'bg-green-50 border-l-2 border-green-500' : ''}`}
-            >
-              <div className="flex gap-2">
-                {/* 이미지 thumbnail */}
-                {post.images?.[0]?.url ? (
-                  <img src={post.images[0].url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-gray-200 flex-shrink-0 flex items-center justify-center">
-                    <ImageIcon size={16} className="text-gray-400" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-400">{post.date} {post.time}</p>
-                  <p className="text-sm font-semibold text-gray-800 line-clamp-1 mt-0.5">{post.title}</p>
-                  <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{post.content ?? ''}</p>
-                </div>
+          groupedPosts.map((group) => (
+            <section key={group.date || 'unknown'} className="border-b border-gray-100 last:border-b-0">
+              <div className="sticky top-0 z-10 bg-gray-50/95 px-3 py-2 text-[11px] font-bold text-gray-500 backdrop-blur">
+                {formatDateLabel(group.date)}
               </div>
-              <div className="flex gap-2 mt-2">
-                <span className="text-xs text-green-600 border border-green-200 rounded px-2 py-0.5">수정</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(post.id); }}
-                  className="text-xs text-red-400 border border-red-100 rounded px-2 py-0.5 hover:bg-red-50"
+              {group.posts.map((post) => (
+                <div
+                  key={post.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelect(post)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(post);
+                    }
+                  }}
+                  className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${selectedId === post.id ? 'bg-green-50 border-l-2 border-green-500' : ''}`}
                 >
-                  삭제
-                </button>
-              </div>
-            </div>
+                  <div className="flex gap-2">
+                    <div className="w-14 flex-shrink-0">
+                      <span className={`block rounded-md px-2 py-1 text-center text-xs font-bold ${
+                        getPostTimeLabel(post) === '시간 미정'
+                          ? 'bg-gray-100 text-gray-400'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {getPostTimeLabel(post)}
+                      </span>
+                    </div>
+                    {post.images?.[0]?.url ? (
+                      <img src={post.images[0].url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-200 flex-shrink-0 flex items-center justify-center">
+                        <ImageIcon size={16} className="text-gray-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 line-clamp-1">{post.title}</p>
+                      <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{post.content ?? ''}</p>
+                      <p className="mt-1 text-[11px] text-gray-400">{post.marker?.placeName ?? '위치 미정'}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2 pl-16">
+                    <span className="text-xs text-green-600 border border-green-200 rounded px-2 py-0.5">수정</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDelete(post.id); }}
+                      className="text-xs text-red-400 border border-red-100 rounded px-2 py-0.5 hover:bg-red-50"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </section>
           ))
         )}
       </div>
@@ -173,17 +241,30 @@ function PostEditor({
   const images = post.images ?? [];
   const content = post.content ?? '';
 
-  const set = (key: keyof Post, value: unknown) => onChange({ ...post, [key]: value });
+  const set = (key: keyof Post, value: unknown) => {
+    if (key === 'date' && typeof value === 'string') {
+      const nextPost = { ...post, date: value };
+      onChange({
+        ...nextPost,
+        marker: post.marker
+          ? { ...post.marker, visitTime: alignMarkerVisitDate(nextPost, post.marker.visitTime) }
+          : post.marker,
+      });
+      return;
+    }
+
+    onChange({ ...post, [key]: value });
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await postApi.update(tripId, post.id, {
+      const updated = await postApi.update(tripId, post.id, {
         title: post.title,
         content,
         date: post.date,
-        time: post.time,
-      });
+      }) as Post;
+      onChange(withDerivedPostTime(updated));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       onToast('Post가 저장되었습니다.');
@@ -241,25 +322,14 @@ function PostEditor({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">날짜</label>
-            <input
-              type="date"
-              value={post.date}
-              onChange={(e) => set('date', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">시간</label>
-            <input
-              type="time"
-              value={post.time ?? ''}
-              onChange={(e) => set('time', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
-            />
-          </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">날짜</label>
+          <input
+            type="date"
+            value={post.date}
+            onChange={(e) => set('date', e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
+          />
         </div>
 
         <div>
@@ -367,6 +437,12 @@ function MarkerEditor({
 
   const loadCandidates = async () => {
     if (!marker) return;
+    if (marker.lat == null || marker.lng == null) {
+      setCandidatesError('좌표가 없어 주변 장소를 조회할 수 없습니다. 장소명 또는 주소로 검색해주세요.');
+      setCandidatesOpen(true);
+      setCandidateMode('nearby');
+      return;
+    }
 
     if (candidatesOpen && candidateMode === 'nearby') {
       setCandidatesOpen(false);
@@ -437,7 +513,7 @@ function MarkerEditor({
         placeName: marker.placeName,
         lat: marker.lat,
         lng: marker.lng,
-        visitTime: marker.visitTime,
+        visitTime: alignMarkerVisitDate(post, marker.visitTime),
         source: marker.source ?? (marker.id ? 'AUTO' : 'MANUAL'),
       };
       const updatedMarker = marker.id
@@ -451,18 +527,6 @@ function MarkerEditor({
       onToast(error instanceof Error ? error.message : '마커 저장에 실패했습니다.', 'error');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!marker?.id || !confirm('마커를 삭제하시겠습니까?')) return;
-    try {
-      await markerApi.delete(post.id, marker.id);
-      setMarker(null);
-      onMarkerUpdated(null);
-      onToast('마커가 삭제되었습니다.');
-    } catch {
-      onToast('마커 삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -529,7 +593,7 @@ function MarkerEditor({
             <div className="flex h-full w-full flex-col items-center justify-center">
               <MapPin size={24} className="mb-1 text-green-600" />
               <p className="text-xs text-gray-400">
-                {marker ? '지도 로딩 대기 중' : '마커 좌표가 없습니다'}
+                {markerPosition ? '지도 로딩 대기 중' : '마커 위치가 아직 지정되지 않았습니다'}
               </p>
             </div>
           )}
@@ -586,8 +650,8 @@ function MarkerEditor({
                 <label className="block text-xs text-gray-500 mb-1">위도</label>
                 <input
                   type="number"
-                  value={marker.lat}
-                  onChange={(e) => setM('lat', parseFloat(e.target.value))}
+                  value={marker.lat ?? ''}
+                  onChange={(e) => setM('lat', e.target.value === '' ? undefined : parseFloat(e.target.value))}
                   step="0.0001"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
                 />
@@ -596,8 +660,8 @@ function MarkerEditor({
                 <label className="block text-xs text-gray-500 mb-1">경도</label>
                 <input
                   type="number"
-                  value={marker.lng}
-                  onChange={(e) => setM('lng', parseFloat(e.target.value))}
+                  value={marker.lng ?? ''}
+                  onChange={(e) => setM('lng', e.target.value === '' ? undefined : parseFloat(e.target.value))}
                   step="0.0001"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
                 />
@@ -607,9 +671,9 @@ function MarkerEditor({
             <div>
               <label className="block text-xs text-gray-500 mb-1">방문 시간</label>
               <input
-                type="datetime-local"
-                value={marker.visitTime ?? ''}
-                onChange={(e) => setM('visitTime', e.target.value)}
+                type="time"
+                value={toTimeInput(marker.visitTime) ?? ''}
+                onChange={(e) => setM('visitTime', combinePostDateAndTime(post, e.target.value))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
               />
             </div>
@@ -621,13 +685,6 @@ function MarkerEditor({
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
               >
                 {saving ? '저장 중...' : marker.id ? '마커 수정' : '마커 추가'}
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={!marker.id}
-                className="px-4 py-2 border border-red-200 text-red-500 text-xs font-semibold rounded-lg hover:bg-red-50 transition-colors"
-              >
-                마커 삭제
               </button>
             </div>
 
@@ -679,7 +736,7 @@ export default function TripEditPage() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tripImages, setTripImages] = useState<TripImage[]>([]);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [representativeSaving, setRepresentativeSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -691,6 +748,9 @@ export default function TripEditPage() {
   const [tripForm, setTripForm] = useState({
     title: '', country: '', city: '', startDate: '', endDate: '', isPublic: true,
   });
+  const selectedPost = selectedPostId
+    ? posts.find((post) => post.id === selectedPostId) ?? null
+    : null;
 
   const showToast = (message: string, tone: ToastState['tone'] = 'success') => {
     setToast({ message, tone });
@@ -719,7 +779,7 @@ export default function TripEditPage() {
     Promise.all([tripApi.getOne(tripId), postApi.getList(tripId), tripApi.getImages(tripId).catch(() => [])])
       .then(([t, p, images]) => {
         const tripData = t as Trip;
-        const postData = (p as Post[]).map(withDerivedPostTime);
+        const postData = sortPosts((p as Post[]).map(withDerivedPostTime));
         const loadedImages = images as TripImage[];
         setTrip(tripData);
         setTripForm({
@@ -732,7 +792,7 @@ export default function TripEditPage() {
         });
         setTripImages(loadedImages.length ? loadedImages : getTripImagesFromPosts(postData));
         setPosts(postData);
-        if (postData.length) setSelectedPost(postData[0]);
+        if (postData.length) setSelectedPostId(postData[0].id);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -746,7 +806,6 @@ export default function TripEditPage() {
           title: post.title,
           content: post.content,
           date: post.date,
-          time: post.time,
         })),
         ...posts
           .filter((post) => post.marker)
@@ -754,7 +813,7 @@ export default function TripEditPage() {
             placeName: post.marker!.placeName,
             lat: post.marker!.lat,
             lng: post.marker!.lng,
-            visitTime: post.marker!.visitTime,
+            visitTime: alignMarkerVisitDate(post, post.marker!.visitTime),
             source: post.marker!.source ?? 'AUTO',
           })),
       ]);
@@ -774,9 +833,9 @@ export default function TripEditPage() {
     const deletedPost = posts.find((post) => post.id === postId);
     try {
       await postApi.delete(tripId, postId);
-      const nextPosts = posts.filter((post) => post.id !== postId);
+      const nextPosts = sortPosts(posts.filter((post) => post.id !== postId));
       setPosts(nextPosts);
-      if (selectedPost?.id === postId) setSelectedPost(nextPosts[0] ?? null);
+      if (selectedPostId === postId) setSelectedPostId(nextPosts[0]?.id ?? null);
       setTripImages((prev) => prev.map((image) => (
         deletedPost?.images.some((postImage) => postImage.id === image.id)
           ? { ...image, postId: undefined }
@@ -797,8 +856,8 @@ export default function TripEditPage() {
         date: today,
       }) as Post;
       const nextPost = withDerivedPostTime(created);
-      setPosts((prev) => [nextPost, ...prev]);
-      setSelectedPost(nextPost);
+      setPosts((prev) => sortPosts([...prev, nextPost]));
+      setSelectedPostId(nextPost.id);
       showToast('새 Post가 생성되었습니다.');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Post 생성에 실패했습니다.', 'error');
@@ -1003,8 +1062,8 @@ export default function TripEditPage() {
         <div className="w-[240px] border-r border-gray-100 bg-white flex-shrink-0 overflow-hidden">
           <PostList
             posts={posts}
-            selectedId={selectedPost?.id ?? null}
-            onSelect={(post) => setSelectedPost(withDerivedPostTime(post))}
+            selectedId={selectedPostId}
+            onSelect={(post) => setSelectedPostId(post.id)}
             onDelete={handleDeletePost}
             onCreate={handleCreatePost}
           />
@@ -1019,8 +1078,8 @@ export default function TripEditPage() {
               onToast={showToast}
               onChange={(updated) => {
                 const nextPost = withDerivedPostTime(updated);
-                setSelectedPost(nextPost);
-                setPosts((prev) => prev.map((p) => (p.id === nextPost.id ? nextPost : p)));
+                setSelectedPostId(nextPost.id);
+                setPosts((prev) => sortPosts(prev.map((p) => (p.id === nextPost.id ? nextPost : p))));
                 setTripImages((prev) => {
                   const nextImages = new Map(prev.map((image) => [image.id, image]));
                   nextPost.images?.forEach((image) => {
@@ -1064,10 +1123,10 @@ export default function TripEditPage() {
               post={selectedPost}
               onToast={showToast}
               onMarkerUpdated={(marker) => {
-                setSelectedPost((p) => (p ? withDerivedPostTime({ ...p, marker: marker ?? undefined }) : p));
-                setPosts((prev) => prev.map((p) => (
-                  p.id === selectedPost.id ? withDerivedPostTime({ ...p, marker: marker ?? undefined }) : p
-                )));
+                if (!selectedPost) return;
+                setPosts((prev) => sortPosts(prev.map((p) => (
+                  p.id === selectedPost.id ? withMarkerPostTime(p, marker) : p
+                ))));
               }}
             />
           ) : (

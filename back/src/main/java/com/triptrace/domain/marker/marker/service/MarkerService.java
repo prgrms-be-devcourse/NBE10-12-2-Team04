@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -36,6 +37,7 @@ public class MarkerService {
     }
 
     // 생성
+    @Transactional
     public MarkerResponse createMarker(Long postId, Long memberId, MarkerCreateRequest request) {
 
         Post post = postRepository.findById(postId)
@@ -119,7 +121,7 @@ public class MarkerService {
             request.centerLat(),
             request.centerLng(),
             request.placeName(),
-            request.visitedAt(),
+            alignVisitedAtWithPostDate(marker.getPost(), request.visitedAt()),
             request.source()
         );
 
@@ -128,12 +130,17 @@ public class MarkerService {
 
     // 삭제
     public void deleteMarker(Long markerId, Long memberId) {
-
         Marker marker = markerRepository.findById(markerId)
             .orElseThrow(() -> new ServiceException("404-1", "마커를 찾을 수 없습니다."));
 
         validateOwner(marker.getPost(), memberId);
+        throw new ServiceException("400-1", "마커는 삭제할 수 없습니다.");
+    }
 
-        markerRepository.delete(marker);
+    private LocalDateTime alignVisitedAtWithPostDate(Post post, LocalDateTime visitedAt) {
+        if (visitedAt == null) {
+            return null;
+        }
+        return LocalDateTime.of(post.getDate(), visitedAt.toLocalTime());
     }
 }

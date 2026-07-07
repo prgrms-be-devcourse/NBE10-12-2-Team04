@@ -104,12 +104,14 @@ function toTimeInput(value: unknown) {
 
 function normalizeMarker(marker: Record<string, unknown> | null | undefined) {
   if (!marker) return undefined;
+  const lat = marker.lat ?? marker.centerLat;
+  const lng = marker.lng ?? marker.centerLng;
 
   return {
     id: String(marker.id),
     placeName: String(marker.placeName ?? '위치 미정'),
-    lat: Number(marker.lat ?? marker.centerLat),
-    lng: Number(marker.lng ?? marker.centerLng),
+    lat: lat == null ? undefined : Number(lat),
+    lng: lng == null ? undefined : Number(lng),
     representativeImageId: marker.representativeImageId == null ? undefined : String(marker.representativeImageId),
     representativeImageUrl: toAssetUrl(marker.representativeImageUrl ?? marker.representativeThumbnailUrl ?? marker.thumbnailUrl),
     visitTime: typeof marker.visitTime === 'string' ? marker.visitTime : marker.visitedAt,
@@ -158,7 +160,7 @@ function normalizePost(post: Record<string, unknown>) {
     id: String(post.id),
     tripId: String(post.tripId),
     content: post.content ?? post.memo ?? '',
-    time: post.time ?? toTimeInput(marker?.visitTime),
+    time: toTimeInput(post.time),
     images,
     marker,
   };
@@ -422,6 +424,7 @@ export const postApi = {
       method: 'POST',
       body: JSON.stringify({
         date: body.date,
+        time: body.time || null,
         title: body.title,
         memo: body.content,
       }),
@@ -436,10 +439,11 @@ export const postApi = {
       method: 'PATCH',
       body: JSON.stringify({
         date: body.date,
+        time: body.time || null,
         title: body.title,
         memo: body.content,
       }),
-    }),
+    }).then((post) => normalizePost(post as Record<string, unknown>)),
 
   delete: (_tripId: string, postId: string) =>
     request(`/api/v1/posts/${postId}`, { method: 'DELETE' }),
@@ -485,8 +489,8 @@ export const markerApi = {
     postId: string,
     body: {
       placeName: string;
-      lat: number;
-      lng: number;
+      lat?: number;
+      lng?: number;
       visitTime?: string;
       source?: string;
     },
@@ -494,8 +498,8 @@ export const markerApi = {
     request<Record<string, unknown>>(`/api/v1/posts/${postId}/markers`, {
       method: 'POST',
       body: JSON.stringify({
-        centerLat: body.lat,
-        centerLng: body.lng,
+        centerLat: body.lat ?? null,
+        centerLng: body.lng ?? null,
         placeName: body.placeName,
         visitedAt: body.visitTime,
         source: body.source ?? 'MANUAL',
@@ -507,8 +511,8 @@ export const markerApi = {
     markerId: string,
     body: Partial<{
       placeName: string;
-      lat: number;
-      lng: number;
+      lat?: number;
+      lng?: number;
       visitTime: string;
       source: string;
     }>,
@@ -516,16 +520,13 @@ export const markerApi = {
     request<Record<string, unknown>>(`/api/v1/posts/markers/${markerId}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        centerLat: body.lat,
-        centerLng: body.lng,
+        centerLat: body.lat ?? null,
+        centerLng: body.lng ?? null,
         placeName: body.placeName,
         visitedAt: body.visitTime,
         source: body.source ?? 'AUTO',
       }),
     }).then(normalizeMarker),
-
-  delete: (_postId: string, markerId: string) =>
-    request(`/api/v1/posts/markers/${markerId}`, { method: 'DELETE' }),
 
   getCandidates: (markerId: string) =>
     request<unknown[]>(`/api/v1/posts/markers/${markerId}/place-candidates`)

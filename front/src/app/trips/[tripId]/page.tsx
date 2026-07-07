@@ -8,6 +8,13 @@ import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, Maximize2, Min
 import { isAuthenticated, tripApi, postApi, likeApi, userApi } from '@/lib/api';
 import type { Trip, Post } from '@/types';
 
+type LocatedPost = Post & {
+  marker: NonNullable<Post['marker']> & {
+    lat: number;
+    lng: number;
+  };
+};
+
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const GOOGLE_MAPS_SCRIPT_ID = 'triptrace-google-map-script';
 const mapContainerStyle = { width: '100%', height: '100%' };
@@ -24,8 +31,8 @@ function isValidCoordinate(value: unknown) {
 }
 
 function getMarkerPosts(posts: Post[]) {
-  return posts.filter((post) =>
-    post.marker &&
+  return posts.filter((post): post is LocatedPost =>
+    !!post.marker &&
     isValidCoordinate(post.marker.lat) &&
     isValidCoordinate(post.marker.lng)
   );
@@ -38,8 +45,8 @@ function getMarkerPosition(index: number) {
   };
 }
 
-function getDisplayMarkerPositions(posts: Post[]) {
-  const grouped = new Map<string, Array<{ post: Post; base: { lat: number; lng: number } }>>();
+function getDisplayMarkerPositions(posts: LocatedPost[]) {
+  const grouped = new Map<string, Array<{ post: LocatedPost; base: { lat: number; lng: number } }>>();
 
   posts.forEach((post) => {
     if (!post.marker) return;
@@ -106,7 +113,7 @@ function PhotoMapMarker({
   selected,
   onClick,
 }: {
-  post: Post;
+  post: LocatedPost;
   position: { lat: number; lng: number };
   index: number;
   selected: boolean;
@@ -243,7 +250,7 @@ function GoogleTripMap({
   const displayPositions = useMemo(() => getDisplayMarkerPositions(markerPosts), [markerPosts]);
   const path = useMemo(() => markerPosts.map((post) => ({
     postId: post.id,
-    ...(displayPositions.get(post.id) ?? { lat: post.marker!.lat, lng: post.marker!.lng }),
+    ...(displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng }),
   })), [displayPositions, markerPosts]);
   const pathKey = `${dayKey}|${path.map((point) => `${point.postId}:${point.lat},${point.lng}`).join('|')}`;
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -379,7 +386,7 @@ function GoogleTripMap({
         selectedPostId === post.id ? (
           <OverlayView
             key={`${post.id}-preview`}
-            position={displayPositions.get(post.id) ?? { lat: post.marker!.lat, lng: post.marker!.lng }}
+            position={displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng }}
             mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
             <div className="pointer-events-auto -translate-x-1/2 -translate-y-[calc(100%+58px)]">

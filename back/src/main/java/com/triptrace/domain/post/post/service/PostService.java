@@ -3,6 +3,7 @@ package com.triptrace.domain.post.post.service;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.marker.marker.entity.Marker;
+import com.triptrace.domain.marker.marker.entity.MarkerSource;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.post.post.dto.PostCreateRequest;
 import com.triptrace.domain.post.post.dto.PostModifyRequest;
@@ -16,6 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -40,6 +45,14 @@ public class PostService {
             request.date(),
             request.title(),
             request.memo()
+        ));
+        markerRepository.save(new Marker(
+            post,
+            null,
+            null,
+            null,
+            toVisitedAt(request.date(), request.time()),
+            MarkerSource.MANUAL
         ));
 
         return toResponse(post);
@@ -81,6 +94,7 @@ public class PostService {
             request.title(),
             request.memo()
         );
+        syncMarkerDate(post);
 
         return toResponse(post);
     }
@@ -135,12 +149,56 @@ public class PostService {
             .collect(Collectors.toMap(marker -> marker.getPost().getId(), Function.identity()));
 
         return posts.stream()
+            .sorted(Comparator
+                .comparing(Post::getDate)
+                .thenComparing(
+                    post -> resolveTime(post, markerByPostId.get(post.getId())),
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                )
+                .thenComparing(Post::getId))
             .map(post -> new PostResponse(
                 post,
                 imagesByPostId.getOrDefault(post.getId(), List.of()),
                 markerByPostId.get(post.getId())
             ))
             .toList();
+    }
+
+    private LocalTime resolveTime(Post post, Marker marker) {
+        return marker == null || marker.getVisitedAt() == null
+            ? null
+            : marker.getVisitedAt().toLocalTime();
+    }
+
+    private LocalDateTime toVisitedAt(LocalDate date, LocalTime time) {
+        if (date == null || time == null) {
+            return null;
+        }
+        return LocalDateTime.of(date, time);
+    }
+
+    private void syncMarkerDate(Post post) {
+        Marker marker = markerRepository.findByPostId(post.getId())
+            .orElseGet(() -> markerRepository.save(new Marker(
+                post,
+                null,
+                null,
+                null,
+                null,
+                MarkerSource.MANUAL
+            )));
+
+        if (marker.getVisitedAt() == null) {
+            return;
+        }
+
+        marker.modify(
+            marker.getCenterLat(),
+            marker.getCenterLng(),
+            marker.getPlaceName(),
+            LocalDateTime.of(post.getDate(), marker.getVisitedAt().toLocalTime()),
+            marker.getSource()
+        );
     }
 
     @Transactional(readOnly = true)

@@ -7,12 +7,14 @@ import com.triptrace.domain.post.post.entity.Post;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 public record PostResponse(
     Long id,
     Long tripId,
     LocalDate date,
+    LocalTime time,
     String title,
     String memo,
     List<PostImageResponse> images,
@@ -29,6 +31,7 @@ public record PostResponse(
             post.getId(),
             post.getTrip().getId(),
             post.getDate(),
+            marker == null || marker.getVisitedAt() == null ? null : marker.getVisitedAt().toLocalTime(),
             post.getTitle(),
             post.getMemo(),
             images.stream()

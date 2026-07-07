@@ -60,8 +60,8 @@ export interface PostImage {
 export interface Marker {
   id: string;
   placeName: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   representativeImageId?: string;
   representativeImageUrl?: string;
   visitTime?: string;

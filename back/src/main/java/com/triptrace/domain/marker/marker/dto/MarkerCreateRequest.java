@@ -10,10 +10,8 @@ import jakarta.validation.constraints.Size;
 
 public record MarkerCreateRequest(
 
-    @NotNull
     BigDecimal centerLat,
 
-    @NotNull
     BigDecimal centerLng,
 
     @Size(max = 100)
