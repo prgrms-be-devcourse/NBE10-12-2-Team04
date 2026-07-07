@@ -5,6 +5,8 @@ import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.repository.TripRepository;
+import com.triptrace.domain.trip.tripLike.entity.TripLike;
+import com.triptrace.domain.trip.tripLike.repository.TripLikeRepository;
 import com.triptrace.domain.trip.tripLike.service.TripLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -38,6 +41,8 @@ public class ApiV1TripFeedControllerTest {
     private TripRepository tripRepository;
     @Autowired
     private TripLikeService tripLikeService;
+    @Autowired
+    private TripLikeRepository tripLikeRepository;
     @Autowired
     private MockMvc mvc;
 
@@ -93,6 +98,10 @@ public class ApiV1TripFeedControllerTest {
             privateTripList.add(createTrip(ownerList.get(i - 1), "비공개여행기%d".formatted(i), false));
         }
         return privateTripList;
+    }
+
+    private void setCreatedAt(Object target, LocalDateTime createdAt) {
+        ReflectionTestUtils.setField(target, "createdAt", createdAt);
     }
 
 
@@ -238,6 +247,44 @@ public class ApiV1TripFeedControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.length()").value(10))
             .andExpect(jsonPath("$.data[0].title").value("공개여행기10"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("좋아요 Top10은 최근 한 달 좋아요만 집계하고 동률이면 최신 여행기가 먼저 온다")
+    public void getLikedTop10WithinOneMonthAndNewestFirstOnTie() throws Exception {
+        List<Member> memberList = creatMemberList(5);
+        Member owner = createMember("ownerRecentLike");
+        Trip oldPopularTrip = createTrip(owner, "한달전 인기 여행기");
+        Trip oldTrip = createTrip(owner, "동률 오래된 여행기");
+        Trip newTrip = createTrip(owner, "동률 최신 여행기");
+        LocalDateTime now = LocalDateTime.now();
+
+        setCreatedAt(oldTrip, now.minusDays(10));
+        setCreatedAt(newTrip, now.minusDays(1));
+        tripRepository.saveAndFlush(oldTrip);
+        tripRepository.saveAndFlush(newTrip);
+
+        tripLikeService.createLike(memberList.get(0).getId(), oldPopularTrip.getId());
+        tripLikeService.createLike(memberList.get(1).getId(), oldPopularTrip.getId());
+        tripLikeService.createLike(memberList.get(2).getId(), oldPopularTrip.getId());
+
+        List<TripLike> oldLikes = tripLikeRepository.findAll().stream()
+            .filter(tripLike -> tripLike.getTrip().getId().equals(oldPopularTrip.getId()))
+            .toList();
+        oldLikes.forEach(tripLike -> setCreatedAt(tripLike, now.minusMonths(2)));
+        tripLikeRepository.saveAllAndFlush(oldLikes);
+
+        tripLikeService.createLike(memberList.get(3).getId(), oldTrip.getId());
+        tripLikeService.createLike(memberList.get(4).getId(), newTrip.getId());
+
+        mvc.perform(
+                get("/api/v1/feed/trips/top-liked"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(2))
+            .andExpect(jsonPath("$.data[0].title").value("동률 최신 여행기"))
+            .andExpect(jsonPath("$.data[1].title").value("동률 오래된 여행기"));
     }
 
     @Test

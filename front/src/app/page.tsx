@@ -551,21 +551,7 @@ function RecentTripsList({
   loadingMore: boolean;
   sentinelRef: RefObject<HTMLDivElement | null>;
 }) {
-  const fallback = fallbackPlaces.map((p, i) => ({
-    id: `recent-${i}`,
-    title: `${p.city}, ${p.country} 여행 일정 공유`,
-    city: p.city,
-    country: p.country,
-    startDate: `2024.05.${String(20 + i).padStart(2, '0')}`,
-    endDate: '',
-    isPublic: true,
-    likeCount: [123, 98, 87, 76][i],
-    recordCount: 0,
-    author: { id: '', nickname: 'Traveler_shb' },
-    createdAt: '',
-  } as Trip));
-  const source = trips.length ? trips : fallback;
-  const visible = source;
+  const visible = trips;
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -597,7 +583,7 @@ function RecentTripsList({
           </div>
         ))}
       </div>
-      {trips.length > 0 && (
+      {(trips.length > 0 || hasMore || loadingMore) && (
         <div ref={sentinelRef} className="flex min-h-10 items-center justify-center pt-4 text-sm text-gray-400">
           {loadingMore ? '불러오는 중...' : hasMore ? null : '마지막 여행기입니다.'}
         </div>
@@ -731,7 +717,7 @@ export default function HomePage() {
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [loadMoreRecent, recentHasMore]);
+  }, [loadMoreRecent, recentHasMore, recent.length]);
 
   const startSheetDrag = (event: React.MouseEvent<HTMLDivElement>) => {
     dragRef.current = { y: event.clientY, height: sheetHeight };

@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -142,10 +143,12 @@ public class TripService {
         return toResponse(trip);
     }
 
-    // 공개여행기 중 좋아요 수 상위 10개 조회 메서드 추가
+    // 공개여행기 중 최근 한 달 좋아요 수 상위 10개 조회
     @Transactional(readOnly = true)
     public List<TripResponse> findTop10PublicTripsByLikeCount() {
-        return tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc()
+        LocalDateTime likedSince = LocalDateTime.now().minusMonths(1);
+
+        return tripRepository.findTop10PublicTripsByRecentLikeCount(likedSince)
             .stream()
             .map(this::toResponse)
             .toList();
