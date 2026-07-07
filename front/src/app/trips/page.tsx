@@ -1,6 +1,6 @@
 'use client';
 
-import { Dispatch, SetStateAction, useEffect, useState, useRef } from 'react';
+import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
@@ -572,6 +572,35 @@ function getTripMapPosition(trip: Trip) {
   };
 }
 
+function getTripMapPositions(trips: Trip[]) {
+  const grouped = new Map<string, Array<{ trip: Trip; base: { lat: number; lng: number } }>>();
+
+  trips.forEach((trip) => {
+    const base = getTripMapPosition(trip);
+    const key = `${base.lat.toFixed(4)}:${base.lng.toFixed(4)}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), { trip, base }]);
+  });
+
+  const positions = new Map<string, { lat: number; lng: number }>();
+  grouped.forEach((items) => {
+    items.forEach(({ trip, base }, index) => {
+      if (items.length === 1) {
+        positions.set(trip.id, base);
+        return;
+      }
+
+      const angle = (Math.PI * 2 * index) / items.length;
+      const radius = 0.035 + Math.floor(index / 8) * 0.018;
+      positions.set(trip.id, {
+        lat: base.lat + Math.sin(angle) * radius,
+        lng: base.lng + Math.cos(angle) * radius,
+      });
+    });
+  });
+
+  return positions;
+}
+
 function TripsFallbackMapView({ trips }: { trips: Trip[] }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -600,22 +629,33 @@ function TripsFallbackMapView({ trips }: { trips: Trip[] }) {
 function TripsMapView({ trips }: { trips: Trip[] }) {
   const router = useRouter();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const positions = useMemo(() => getTripMapPositions(trips), [trips]);
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey,
     id: GOOGLE_MAPS_SCRIPT_ID,
   });
 
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || trips.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    trips.forEach((trip) => bounds.extend(getTripMapPosition(trip)));
-    if (trips.length === 1) {
-      mapRef.current.setCenter(getTripMapPosition(trips[0]));
-      mapRef.current.setZoom(7);
+  const fitTripsMap = useCallback((map: google.maps.Map) => {
+    if (trips.length === 0) {
+      map.setCenter(fallbackCoords['한국']);
+      map.setZoom(6);
       return;
     }
-    mapRef.current.fitBounds(bounds, 72);
-  }, [isLoaded, trips]);
+
+    const bounds = new google.maps.LatLngBounds();
+    trips.forEach((trip) => bounds.extend(positions.get(trip.id) ?? getTripMapPosition(trip)));
+    if (trips.length === 1) {
+      map.setCenter(positions.get(trips[0].id) ?? getTripMapPosition(trips[0]));
+      map.setZoom(7);
+      return;
+    }
+    map.fitBounds(bounds, 72);
+  }, [positions, trips]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current) return;
+    fitTripsMap(mapRef.current);
+  }, [fitTripsMap, isLoaded]);
 
   if (!googleMapsApiKey || loadError) {
     return <TripsFallbackMapView trips={trips} />;
@@ -631,11 +671,12 @@ function TripsMapView({ trips }: { trips: Trip[] }) {
         ) : (
           <GoogleMap
             mapContainerStyle={tripsMapContainerStyle}
-            center={trips[0] ? getTripMapPosition(trips[0]) : fallbackCoords['한국']}
+            center={trips[0] ? positions.get(trips[0].id) ?? getTripMapPosition(trips[0]) : fallbackCoords['한국']}
             zoom={6}
             options={tripsMapOptions}
             onLoad={(map) => {
               mapRef.current = map;
+              fitTripsMap(map);
             }}
             onUnmount={() => {
               mapRef.current = null;
@@ -644,7 +685,7 @@ function TripsMapView({ trips }: { trips: Trip[] }) {
             {trips.map((trip) => (
               <Marker
                 key={trip.id}
-                position={getTripMapPosition(trip)}
+                position={positions.get(trip.id) ?? getTripMapPosition(trip)}
                 title={`${trip.title} - ${trip.city || trip.country}`}
                 onClick={() => router.push(`/trips/${trip.id}`)}
                 label={{

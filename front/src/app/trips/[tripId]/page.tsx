@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { GoogleMap, Marker, OverlayView, Polyline, useJsApiLoader } from '@react-google-maps/api';
@@ -45,6 +45,36 @@ function getMarkerPosition(index: number) {
   };
 }
 
+function getDisplayMarkerPositions(posts: LocatedPost[]) {
+  const grouped = new Map<string, Array<{ post: LocatedPost; base: { lat: number; lng: number } }>>();
+
+  posts.forEach((post) => {
+    if (!post.marker) return;
+    const base = { lat: post.marker.lat, lng: post.marker.lng };
+    const key = `${base.lat.toFixed(5)}:${base.lng.toFixed(5)}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), { post, base }]);
+  });
+
+  const positions = new Map<string, { lat: number; lng: number }>();
+  grouped.forEach((items) => {
+    items.forEach(({ post, base }, index) => {
+      if (items.length === 1) {
+        positions.set(post.id, base);
+        return;
+      }
+
+      const angle = (Math.PI * 2 * index) / items.length;
+      const radius = 0.0009 + Math.floor(index / 8) * 0.00045;
+      positions.set(post.id, {
+        lat: base.lat + Math.sin(angle) * radius,
+        lng: base.lng + Math.cos(angle) * radius,
+      });
+    });
+  });
+
+  return positions;
+}
+
 function formatDayLabel(day: string, index: number) {
   const formatted = day ? day.replaceAll('-', '.') : '';
   return `Day ${index + 1}${formatted ? ` - ${formatted}` : ''}`;
@@ -78,11 +108,13 @@ function PostPreviewCard({ post }: { post: Post }) {
 
 function PhotoMapMarker({
   post,
+  position,
   index,
   selected,
   onClick,
 }: {
   post: LocatedPost;
+  position: { lat: number; lng: number };
   index: number;
   selected: boolean;
   onClick: () => void;
@@ -92,7 +124,7 @@ function PhotoMapMarker({
   if (!imageUrl) {
     return (
       <Marker
-        position={{ lat: post.marker.lat, lng: post.marker.lng }}
+        position={position}
         onClick={onClick}
         label={{
           text: String(index + 1),
@@ -107,7 +139,7 @@ function PhotoMapMarker({
 
   return (
     <OverlayView
-      position={{ lat: post.marker.lat, lng: post.marker.lng }}
+      position={position}
       mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
     >
       <button
@@ -206,41 +238,87 @@ function GoogleTripMap({
   selectedPostId,
   onMarkerSelect,
   sheetTop,
+  dayKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
   sheetTop: number;
+  dayKey: string;
 }) {
   const markerPosts = useMemo(() => getMarkerPosts(posts), [posts]);
+  const displayPositions = useMemo(() => getDisplayMarkerPositions(markerPosts), [markerPosts]);
   const path = useMemo(() => markerPosts.map((post) => ({
-    lat: post.marker.lat,
-    lng: post.marker.lng,
-  })), [markerPosts]);
-  const pathKey = path.map((point) => `${point.lat},${point.lng}`).join('|');
-  const center = path[0] ?? { lat: 37.5665, lng: 126.978 };
+    postId: post.id,
+    ...(displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng }),
+  })), [displayPositions, markerPosts]);
+  const pathKey = `${dayKey}|${path.map((point) => `${point.postId}:${point.lat},${point.lng}`).join('|')}`;
   const mapRef = useRef<google.maps.Map | null>(null);
+  const fittedPathRef = useRef('');
+  const idleFitPathRef = useRef('');
+  const latestFitRef = useRef<(map: google.maps.Map, fit: boolean) => void>(() => {});
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey,
     id: GOOGLE_MAPS_SCRIPT_ID,
   });
 
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || path.length === 0) return;
+  const moveMapToCurrentDay = useCallback((map: google.maps.Map, fit: boolean) => {
+    if (path.length === 0) return;
     const bottomPadding = Math.max(160, window.innerHeight - sheetTop + 64);
     const bounds = new google.maps.LatLngBounds();
-    path.forEach((point) => bounds.extend(point));
+    path.forEach((point) => bounds.extend({ lat: point.lat, lng: point.lng }));
     if (path.length === 1) {
       bounds.extend({ lat: path[0].lat + 0.01, lng: path[0].lng + 0.01 });
       bounds.extend({ lat: path[0].lat - 0.01, lng: path[0].lng - 0.01 });
     }
-    mapRef.current.fitBounds(bounds, {
+    const padding = {
       top: 96,
       right: 72,
       bottom: bottomPadding,
       left: 72,
-    });
-  }, [isLoaded, path, sheetTop]);
+    };
+
+    if (fit) {
+      map.fitBounds(bounds, padding);
+    } else {
+      if (path.length === 1) {
+        map.panTo(path[0]);
+      } else {
+        map.panTo(bounds.getCenter());
+      }
+    }
+  }, [path, sheetTop]);
+
+  useEffect(() => {
+    latestFitRef.current = moveMapToCurrentDay;
+  }, [moveMapToCurrentDay]);
+
+  useEffect(() => {
+    idleFitPathRef.current = '';
+  }, [pathKey]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || path.length === 0) return;
+    const isFirstFit = !fittedPathRef.current;
+    const isDayChanged = fittedPathRef.current !== pathKey;
+
+    if (isFirstFit || isDayChanged) {
+      moveMapToCurrentDay(mapRef.current, isFirstFit);
+    }
+
+    fittedPathRef.current = pathKey;
+  }, [isLoaded, moveMapToCurrentDay, path.length, pathKey]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || path.length === 0) return;
+    const map = mapRef.current;
+    const timers = [
+      window.setTimeout(() => latestFitRef.current(map, true), 120),
+      window.setTimeout(() => latestFitRef.current(map, true), 320),
+    ];
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [isLoaded, path.length, pathKey]);
 
   if (loadError) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
@@ -257,11 +335,16 @@ function GoogleTripMap({
   return (
     <GoogleMap
       mapContainerStyle={mapContainerStyle}
-      center={center}
-      zoom={12}
       options={mapOptions}
       onLoad={(map) => {
         mapRef.current = map;
+        moveMapToCurrentDay(map, true);
+        fittedPathRef.current = pathKey;
+      }}
+      onIdle={() => {
+        if (!mapRef.current || path.length === 0 || idleFitPathRef.current === pathKey) return;
+        idleFitPathRef.current = pathKey;
+        latestFitRef.current(mapRef.current, true);
       }}
       onUnmount={() => {
         mapRef.current = null;
@@ -270,7 +353,7 @@ function GoogleTripMap({
       {path.length > 1 && (
         <Polyline
           key={pathKey}
-          path={path}
+          path={path.map(({ lat, lng }) => ({ lat, lng }))}
           options={{
             icons: [{
               icon: {
@@ -293,6 +376,7 @@ function GoogleTripMap({
         <PhotoMapMarker
           key={post.id}
           post={post}
+          position={displayPositions.get(post.id) ?? { lat: post.marker!.lat, lng: post.marker!.lng }}
           index={index}
           selected={selectedPostId === post.id}
           onClick={() => onMarkerSelect(post)}
@@ -302,7 +386,7 @@ function GoogleTripMap({
         selectedPostId === post.id ? (
           <OverlayView
             key={`${post.id}-preview`}
-            position={{ lat: post.marker.lat, lng: post.marker.lng }}
+            position={displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng }}
             mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
             <div className="pointer-events-auto -translate-x-1/2 -translate-y-[calc(100%+58px)]">
@@ -320,17 +404,19 @@ function TripMap({
   selectedPostId,
   onMarkerSelect,
   sheetTop,
+  dayKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
   sheetTop: number;
+  dayKey: string;
 }) {
   if (!googleMapsApiKey || getMarkerPosts(posts).length === 0) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
   }
 
-  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} />;
+  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} dayKey={dayKey} />;
 }
 
 // ── Day 탭 ────────────────────────────────────────────────────────────
@@ -387,7 +473,7 @@ function TimelineItem({ post, active }: { post: Post; active: boolean }) {
         {/* 이미지 그리드 */}
         {images.length > 0 && (
           <div className="mt-2 flex h-44 gap-2 overflow-x-auto pb-1">
-            {images.slice(0, 3).map((img) =>
+            {images.map((img) =>
               img.url ? (
                 <img key={img.id} src={img.url} alt="" className="h-full w-auto max-w-none rounded-md object-cover" />
               ) : null,
@@ -483,7 +569,7 @@ export default function TripDetailPage() {
   const toggleMapExpanded = () => {
     const nextExpanded = !mapExpanded;
     setMapExpanded(nextExpanded);
-    setSheetTop(nextExpanded ? Math.max(160, window.innerHeight - 240) : Math.max(340, window.innerHeight - 360));
+    setSheetTop(nextExpanded ? window.innerHeight - 220 : Math.max(340, window.innerHeight - 360));
   };
 
   const handleLike = async () => {
@@ -586,7 +672,7 @@ export default function TripDetailPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
       <div className="absolute inset-0 z-0">
-        <TripMap posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} />
+        <TripMap key={activeDay} posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} dayKey={activeDay} />
       </div>
 
       {/* 상단 네비 */}
@@ -679,7 +765,7 @@ export default function TripDetailPage() {
           {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={handleSelectDay} />}
 
           {/* 타임라인 */}
-          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 pb-6">
+          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dayPosts.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">이 날의 기록이 없습니다.</p>
             ) : (
