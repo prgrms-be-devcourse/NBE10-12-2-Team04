@@ -1,5 +1,6 @@
 package com.triptrace.domain.member.member.service;
 
+import com.triptrace.domain.member.member.dto.MemberModifyRequest;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.entity.MemberStatus;
 import com.triptrace.domain.member.member.repository.MemberRepository;
@@ -50,7 +51,22 @@ public class MemberService {
     @Transactional
     public void modifyProfileImageUrl(Long id, String profileImageUrl) {
         Member member = findById(id);
-        member.modifyProfile(profileImageUrl);
-        memberRepository.save(member);
+        member.modifyInfo(null, null, profileImageUrl);
+    }
+
+    // 내 정보 수정: 넘어온 필드만 반영한다. 닉네임은 실제로 바뀔 때만 중복 검사한다.
+    @Transactional
+    public Member modify(Long memberId, MemberModifyRequest request) {
+        Member member = findById(memberId);
+
+        if (request.username() != null
+            && !request.username().equals(member.getUsername())
+            && memberRepository.existsByUsername(request.username())) {
+            throw new ServiceException("409-1", "이미 사용중인 닉네임입니다.");
+        }
+
+        member.modifyInfo(request.username(), request.intro(), request.profileImageUrl());
+
+        return member;
     }
 }

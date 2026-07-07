@@ -3,7 +3,7 @@ export interface User {
   email: string;
   nickname: string;
   profileImageUrl?: string;
-  bio?: string;
+  intro?: string;
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;
