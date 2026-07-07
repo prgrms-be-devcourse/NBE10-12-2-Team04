@@ -9,7 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.AutoConfigureDataJpa;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -355,7 +354,7 @@ public class TripRepositoryTest {
     @Test
     @DisplayName("좋아요 상위 10개 조회 테스트")
     public void t1() {
-        List<Trip> tripList = tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc();
+        List<Trip> tripList = tripRepository.findTop10PublicTripsByRecentLikeCount(LocalDateTime.now().minusMonths(1));
         System.out.println(tripList.get(0).getLikeCount());
         System.out.println(tripList.get(1).getLikeCount());
         System.out.println(tripList.get(2).getLikeCount());
@@ -393,18 +392,10 @@ public class TripRepositoryTest {
 
         tripLikeService.createLike(member1.getId(), trip11.getId());
 
-        List<Trip> tripList = tripRepository.findTop10ByVisibilityTrueOrderByLikeCountDesc();
+        List<Trip> tripList = tripRepository.findTop10PublicTripsByRecentLikeCount(LocalDateTime.now().minusMonths(1));
 
-        System.out.println(tripList.get(0).getLikeCount());
-        System.out.println(tripList.get(1).getLikeCount());
-        System.out.println(tripList.get(2).getLikeCount());
-        System.out.println(tripList.get(3).getLikeCount());
-        System.out.println(tripList.get(4).getLikeCount());
-        System.out.println(tripList.get(5).getLikeCount());
-        System.out.println(tripList.get(6).getLikeCount());
-        System.out.println(tripList.get(7).getLikeCount());
-        System.out.println(tripList.get(8).getLikeCount());
-        System.out.println(tripList.get(9).getLikeCount());
-        System.out.println(tripList.getLast().getId());
+        assertThat(tripList)
+            .doesNotContain(trip11)
+            .allMatch(Trip::isVisibility);
     }
 }

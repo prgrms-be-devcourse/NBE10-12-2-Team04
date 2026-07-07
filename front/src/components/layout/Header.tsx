@@ -26,8 +26,14 @@ export default function Header({ rightSlot }: HeaderProps) {
 
       userApi
         .getMe()
-        .then((user) => setProfileImageUrl(typeof user.profileImageUrl === 'string' ? user.profileImageUrl : ''))
-        .catch(() => setProfileImageUrl(''));
+        .then((user) => {
+          setLoggedIn(true);
+          setProfileImageUrl(typeof user.profileImageUrl === 'string' ? user.profileImageUrl : '');
+        })
+        .catch(() => {
+          setLoggedIn(false);
+          setProfileImageUrl('');
+        });
     };
 
     syncAuthState();
