@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -87,6 +88,20 @@ public class MarkerController {
             "200-1",
             "장소 검색에 성공했습니다.",
             markerService.searchPlaces(keyword)
+        );
+    }
+
+    // 좌표 기준 주변 장소 조회
+    @GetMapping("/places/nearby")
+    public RsData<List<PlaceCandidateResponse>> findNearbyPlaces(
+        @RequestParam BigDecimal latitude,
+        @RequestParam BigDecimal longitude
+    ) {
+
+        return new RsData<>(
+            "200-1",
+            "주변 장소 조회에 성공했습니다.",
+            markerService.findNearbyPlaces(latitude, longitude)
         );
     }
 

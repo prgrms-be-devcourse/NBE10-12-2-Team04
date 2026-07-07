@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -95,6 +96,14 @@ public class MarkerService {
         }
 
         return googlePlacesClient.searchPlaces(keyword);
+    }
+
+    public List<PlaceCandidateResponse> findNearbyPlaces(BigDecimal latitude, BigDecimal longitude) {
+        if (latitude == null || longitude == null) {
+            throw new ServiceException("400-1", "좌표를 입력해주세요.");
+        }
+
+        return googlePlacesClient.findNearbyPlaces(latitude, longitude);
     }
 
     // 수정

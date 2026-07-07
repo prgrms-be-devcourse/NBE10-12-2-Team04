@@ -524,4 +524,8 @@ export const placeApi = {
   search: (keyword: string) =>
     request<unknown[]>(`/api/v1/places/search?keyword=${encodeURIComponent(keyword)}`)
       .then((items) => items.map((item) => normalizePlaceCandidate(item as Record<string, unknown>))),
+
+  nearby: (latitude: number, longitude: number) =>
+    request<unknown[]>(`/api/v1/places/nearby?latitude=${latitude}&longitude=${longitude}`)
+      .then((items) => items.map((item) => normalizePlaceCandidate(item as Record<string, unknown>))),
 };

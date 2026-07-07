@@ -339,6 +339,7 @@ function MarkerEditor({
   const [saving, setSaving] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [candidates, setCandidates] = useState<PlaceCandidate[]>([]);
+  const [candidateMode, setCandidateMode] = useState<'nearby' | 'search' | null>(null);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState('');
   const [searchKeyword, setSearchKeyword] = useState(post.marker?.placeName ?? '');
@@ -361,21 +362,21 @@ function MarkerEditor({
   };
 
   const loadCandidates = async () => {
-    if (!marker?.id) return;
+    if (!marker) return;
 
-    if (candidatesOpen) {
+    if (candidatesOpen && candidateMode === 'nearby') {
       setCandidatesOpen(false);
       return;
     }
 
     setCandidatesOpen(true);
-    if (candidates.length > 0) return;
+    setCandidateMode('nearby');
 
     setCandidatesLoading(true);
     setCandidatesError('');
     try {
-      const data = await markerApi.getCandidates(marker.id);
-      setCandidates(data as PlaceCandidate[]);
+      const data = await placeApi.nearby(marker.lat, marker.lng);
+      setCandidates(data);
     } catch (error) {
       setCandidatesError(error instanceof Error ? error.message : '장소 후보 조회에 실패했습니다.');
     } finally {
@@ -392,6 +393,7 @@ function MarkerEditor({
     }
 
     setCandidatesOpen(true);
+    setCandidateMode('search');
     setCandidatesLoading(true);
     setCandidatesError('');
     try {
@@ -418,6 +420,8 @@ function MarkerEditor({
     if (nextMarker.id) {
       onMarkerUpdated(nextMarker);
     }
+    setCandidates([]);
+    setCandidateMode(null);
     setCandidatesOpen(false);
   };
 
@@ -562,7 +566,6 @@ function MarkerEditor({
               <button
                 type="button"
                 onClick={loadCandidates}
-                disabled={!marker.id}
                 className="mt-2 flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 <span>장소 후보 펼치기</span>
