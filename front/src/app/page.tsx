@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GoogleMap, Marker, OverlayView, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, OverlayView, useJsApiLoader } from '@react-google-maps/api';
 import {
   Camera,
   ChevronLeft,
@@ -25,15 +25,15 @@ const feedMapContainerStyle = { width: '100%', height: '100%' };
 const feedMapOptions = {
   disableDefaultUI: false,
   zoomControl: true,
+  scrollwheel: true,
   mapTypeControl: false,
   streetViewControl: false,
   fullscreenControl: false,
   clickableIcons: false,
   gestureHandling: 'greedy',
-  minZoom: 4,
+  minZoom: 2,
   maxZoom: 13,
 };
-const FEED_CLUSTER_ZOOM_THRESHOLD = 8;
 
 const fallbackPlaces = [
   { city: '다낭', country: '베트남', tone: 'from-cyan-400 via-sky-500 to-emerald-600' },
@@ -101,6 +101,35 @@ function getTripLatLng(trip: Partial<Trip>, index: number) {
   };
 }
 
+function getFeedMarkerPositions(trips: Trip[]) {
+  const grouped = new Map<string, Array<{ trip: Trip; base: { lat: number; lng: number } }>>();
+
+  trips.forEach((trip, index) => {
+    const base = getTripLatLng(trip, index);
+    const key = `${base.lat.toFixed(4)}:${base.lng.toFixed(4)}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), { trip, base }]);
+  });
+
+  const positions = new Map<string, { lat: number; lng: number }>();
+  grouped.forEach((items) => {
+    items.forEach(({ trip, base }, index) => {
+      if (items.length === 1) {
+        positions.set(trip.id, base);
+        return;
+      }
+
+      const angle = (Math.PI * 2 * index) / items.length;
+      const radius = 0.018 + Math.floor(index / 8) * 0.01;
+      positions.set(trip.id, {
+        lat: base.lat + Math.sin(angle) * radius,
+        lng: base.lng + Math.cos(angle) * radius,
+      });
+    });
+  });
+
+  return positions;
+}
+
 function getFallbackLatLng(trip: Partial<Trip>, index: number) {
   const direct = fallbackCoords[trip.city ?? ''] ?? fallbackCoords[trip.country ?? ''];
   if (direct) return direct;
@@ -113,13 +142,6 @@ function getFallbackLatLng(trip: Partial<Trip>, index: number) {
     lat: base.lat + ((hash % 120) - 60) / 100,
     lng: base.lng + (((hash / 7) % 120) - 60) / 100,
   };
-}
-
-function getFeedClusterCellSize(zoom: number) {
-  if (zoom < 4) return 90;
-  if (zoom < 6) return 35;
-  if (zoom < FEED_CLUSTER_ZOOM_THRESHOLD) return 12;
-  return 1;
 }
 
 function TripVisual({
@@ -185,6 +207,46 @@ function TripPhotoMapMarker({
         </span>
       </button>
     </OverlayView>
+  );
+}
+
+function TripMapPreviewCard({
+  trip,
+  index,
+  style,
+  onClose,
+}: {
+  trip: Trip;
+  index: number;
+  style: CSSProperties;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="pointer-events-auto absolute z-30 w-[260px] rounded-xl bg-white p-3 shadow-xl ring-1 ring-black/10"
+      style={style}
+    >
+      <div className="flex gap-3">
+        <TripVisual trip={trip} index={index} className="h-20 w-24 flex-shrink-0 rounded-lg" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="line-clamp-1 text-sm font-bold text-gray-900">{trip.title}</p>
+            <button type="button" onClick={onClose} className="text-gray-300 hover:text-gray-500">
+              <X size={14} />
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-400">{trip.city}, {trip.country}</p>
+          <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-red-500">
+            <Heart size={12} className="fill-red-500" /> {trip.likeCount ?? 0}
+          </p>
+          {!trip.id.startsWith('map-fallback') && (
+            <Link href={`/trips/${trip.id}`} className="mt-2 inline-flex text-xs font-bold text-emerald-600 hover:text-emerald-700">
+              상세보기
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -362,16 +424,13 @@ function MapBand({
   fillHeight?: boolean;
   bottomInset?: number;
 }) {
-  const [zoomedCluster, setZoomedCluster] = useState<string | null>(null);
-  const [focusedTrips, setFocusedTrips] = useState<Trip[] | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [selectedPreview, setSelectedPreview] = useState<{ index: number; style: CSSProperties } | null>(null);
+  const [mapViewVersion, setMapViewVersion] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [mapZoom, setMapZoom] = useState(4);
-  const [pendingMapAction, setPendingMapAction] = useState<{
-    position: { lat: number; lng: number };
-    zoom?: number;
-  } | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const idleFitRef = useRef('');
   const source = useMemo(() => trips.length ? uniqueTrips(trips) : fallbackPlaces.map((place, index) => ({
     id: `map-fallback-${index}`,
     title: `${place.city} 여행기`,
@@ -386,77 +445,118 @@ function MapBand({
     author: { id: '', nickname: 'Traveler' },
     createdAt: '',
   } as Trip)), [trips]);
-  const clusters = useMemo(() => {
-    const cellSize = getFeedClusterCellSize(mapZoom);
-    const grouped = new Map<string, Array<{ trip: Trip; position: { lat: number; lng: number } }>>();
-
-    source.forEach((trip, index) => {
-      const position = getTripLatLng(trip, index);
-      const cellLat = Math.floor(position.lat / cellSize);
-      const cellLng = Math.floor(position.lng / cellSize);
-      const key = `${cellLat}:${cellLng}`;
-      grouped.set(key, [...(grouped.get(key) ?? []), { trip, position }]);
-    });
-
-    return Array.from(grouped.entries()).map(([key, items]) => {
-      const lat = items.reduce((sum, item) => sum + item.position.lat, 0) / items.length;
-      const lng = items.reduce((sum, item) => sum + item.position.lng, 0) / items.length;
-      const firstTrip = items[0].trip;
-
-      return {
-        key,
-        label: items.length > 1
-          ? `${firstTrip.city || firstTrip.country || '여행지'} 외 ${items.length - 1}`
-          : firstTrip.city || firstTrip.country || '여행지',
-        trips: items.map((item) => item.trip),
-        position: { lat, lng },
-      };
-    });
-  }, [mapZoom, source]);
-  const showClusters = mapZoom < FEED_CLUSTER_ZOOM_THRESHOLD;
-  const visibleTrips = showClusters
-    ? []
-    : focusedTrips ?? source;
+  const markerPositions = useMemo(() => getFeedMarkerPositions(source), [source]);
+  const sourceKey = useMemo(() => source.map((trip, index) => {
+    const position = markerPositions.get(trip.id) ?? getTripLatLng(trip, index);
+    return `${trip.id}:${position.lat}:${position.lng}`;
+  }).join('|'), [markerPositions, source]);
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey,
     id: GOOGLE_MAPS_SCRIPT_ID,
   });
 
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || source.length === 0 || zoomedCluster) return;
-    const bounds = new google.maps.LatLngBounds();
-    source.forEach((trip, index) => bounds.extend(getTripLatLng(trip, index)));
-    const maxMapPadding = typeof window === 'undefined' ? 360 : Math.max(220, Math.floor(window.innerHeight * 0.45));
-    const padding = {
-      top: 96,
+  const getVisibleMapPadding = useCallback((map: google.maps.Map) => {
+    const mapHeight = map.getDiv().clientHeight || (typeof window === 'undefined' ? 720 : window.innerHeight);
+    const topPadding = 96;
+    const visibleHeight = fillHeight ? Math.max(160, mapHeight - bottomInset) : mapHeight;
+    const maxBottomPadding = Math.max(96, mapHeight - topPadding - Math.max(120, visibleHeight * 0.45));
+    const bottomPadding = fillHeight
+      ? Math.max(120, Math.min(maxBottomPadding, bottomInset + topPadding))
+      : 96;
+
+    return {
+      top: topPadding,
       right: 72,
-      bottom: fillHeight ? Math.min(maxMapPadding, Math.max(140, bottomInset + 24)) : 96,
+      bottom: bottomPadding,
       left: 72,
     };
+  }, [bottomInset, fillHeight]);
 
-    if (source.length === 1) {
-      mapRef.current.setCenter(getTripLatLng(source[0], 0));
-      mapRef.current.setZoom(6);
+  const fitMapToPositions = useCallback((map: google.maps.Map, positions: Array<{ lat: number; lng: number }>) => {
+    if (positions.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    positions.forEach((position) => bounds.extend(position));
+    if (positions.length === 1) {
+      const point = positions[0];
+      bounds.extend({ lat: point.lat + 0.02, lng: point.lng + 0.02 });
+      bounds.extend({ lat: point.lat - 0.02, lng: point.lng - 0.02 });
+    }
+
+    map.fitBounds(bounds, getVisibleMapPadding(map));
+  }, [getVisibleMapPadding]);
+
+  const fitMapToSource = useCallback((map: google.maps.Map) => {
+    const positions = source.map((trip, index) => markerPositions.get(trip.id) ?? getTripLatLng(trip, index));
+    fitMapToPositions(map, positions);
+  }, [fitMapToPositions, markerPositions, source]);
+
+  const getPreviewStyle = useCallback((position: { lat: number; lng: number }): CSSProperties | null => {
+    const map = mapRef.current;
+    const bounds = map?.getBounds();
+    if (!map || !bounds) return null;
+
+    const north = bounds.getNorthEast().lat();
+    const south = bounds.getSouthWest().lat();
+    let east = bounds.getNorthEast().lng();
+    const west = bounds.getSouthWest().lng();
+    if (east < west) east += 360;
+    const normalizedLng = position.lng < west ? position.lng + 360 : position.lng;
+    const latRange = Math.max(0.0001, north - south);
+    const lngRange = Math.max(0.0001, east - west);
+    const mapRect = map.getDiv().getBoundingClientRect();
+    const markerX = ((normalizedLng - west) / lngRange) * mapRect.width;
+    const markerY = ((north - position.lat) / latRange) * mapRect.height;
+    const cardWidth = 260;
+    const cardHeight = 116;
+    const sidePadding = 16;
+    const topLimit = fillHeight ? 16 : 88;
+    const bottomLimit = fillHeight
+      ? Math.max(topLimit + cardHeight, mapRect.height - bottomInset - 24)
+      : mapRect.height - 16;
+
+    const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
+    const preferredLeft = markerX - cardWidth / 2;
+    const preferredTop = markerY - cardHeight - 76;
+    const left = clamp(preferredLeft, sidePadding, mapRect.width - cardWidth - sidePadding);
+    const top = clamp(preferredTop, topLimit, bottomLimit - cardHeight);
+
+    return { left, top };
+  }, [bottomInset, fillHeight]);
+
+  const updateSelectedPreview = useCallback(() => {
+    if (!selectedTrip) return null;
+    const selectedIndex = source.findIndex((trip) => trip.id === selectedTrip.id);
+    const position = markerPositions.get(selectedTrip.id) ?? getTripLatLng(selectedTrip, Math.max(0, selectedIndex));
+    const style = getPreviewStyle(position);
+    if (!style) {
+      setSelectedPreview(null);
       return;
     }
-    mapRef.current.fitBounds(bounds, padding);
-  }, [bottomInset, fillHeight, isLoaded, source, zoomedCluster]);
+
+    setSelectedPreview({
+      index: Math.max(0, selectedIndex),
+      style,
+    });
+  }, [getPreviewStyle, markerPositions, selectedTrip, source]);
 
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || !pendingMapAction) return;
+    if (!isLoaded || !mapRef.current) return;
+    fitMapToSource(mapRef.current);
+  }, [fitMapToSource, isLoaded]);
 
-    mapRef.current.panTo(pendingMapAction.position);
-    if (typeof pendingMapAction.zoom === 'number') {
-      mapRef.current.setZoom(pendingMapAction.zoom);
-    }
-    setPendingMapAction(null);
-  }, [isLoaded, pendingMapAction]);
+  useEffect(() => {
+    idleFitRef.current = '';
+  }, [bottomInset, sourceKey]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(updateSelectedPreview);
+    return () => window.cancelAnimationFrame(frame);
+  }, [mapViewVersion, updateSelectedPreview]);
 
   const resetMap = () => {
-    setZoomedCluster(null);
-    setFocusedTrips(null);
     setSelectedTrip(null);
-    mapRef.current?.setZoom(4);
+    setSelectedPreview(null);
+    if (mapRef.current) fitMapToSource(mapRef.current);
   };
 
   const changeZoom = (delta: number) => {
@@ -479,65 +579,34 @@ function MapBand({
       ) : (
         <GoogleMap
           mapContainerStyle={feedMapContainerStyle}
-          center={clusters[0]?.position ?? { lat: 37.5665, lng: 126.978 }}
-          zoom={4}
           options={feedMapOptions}
           onZoomChanged={() => {
             const nextZoom = mapRef.current?.getZoom();
             if (typeof nextZoom === 'number') {
               setMapZoom(nextZoom);
-              if (nextZoom < FEED_CLUSTER_ZOOM_THRESHOLD) {
-                setZoomedCluster(null);
-                setFocusedTrips(null);
-                setSelectedTrip(null);
-              }
+              setMapViewVersion((value) => value + 1);
             }
           }}
           onLoad={(map) => {
             mapRef.current = map;
+            map.setOptions({ scrollwheel: true, gestureHandling: 'greedy' });
             setMapZoom(map.getZoom() ?? 5);
+            setMapViewVersion((value) => value + 1);
+            fitMapToSource(map);
+          }}
+          onIdle={() => {
+            setMapViewVersion((value) => value + 1);
+            const idleKey = `${sourceKey}:${Math.round(bottomInset)}`;
+            if (!mapRef.current || idleFitRef.current === idleKey) return;
+            idleFitRef.current = idleKey;
+            fitMapToSource(mapRef.current);
           }}
           onUnmount={() => {
             mapRef.current = null;
           }}
         >
-          {showClusters && clusters.map((cluster, index) => (
-            cluster.trips.length === 1 ? (
-              <TripPhotoMapMarker
-                key={cluster.key}
-                trip={cluster.trips[0]}
-                index={index}
-                position={cluster.position}
-                selected={selectedTrip?.id === cluster.trips[0].id}
-                onClick={() => {
-                  setSelectedTrip(cluster.trips[0]);
-                  setPendingMapAction({ position: cluster.position });
-                }}
-              />
-            ) : (
-              <Marker
-                key={cluster.key}
-                position={cluster.position}
-                onClick={() => {
-                  setZoomedCluster(cluster.key);
-                  setFocusedTrips(cluster.trips);
-                  setSelectedTrip(null);
-                  setPendingMapAction({ position: cluster.position, zoom: FEED_CLUSTER_ZOOM_THRESHOLD + 1 });
-                }}
-                label={{
-                  text: String(cluster.trips.length),
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                }}
-                title={`${cluster.label} ${cluster.trips.length}개`}
-              />
-            )
-          ))}
-          {!showClusters && visibleTrips.map((trip, index) => {
-            const base = getTripLatLng(trip, index);
-            const offset = visibleTrips.length === 1 ? 0 : (index - (visibleTrips.length - 1) / 2) * 0.004;
-            const position = { lat: base.lat + offset, lng: base.lng + offset };
+          {source.map((trip, index) => {
+            const position = markerPositions.get(trip.id) ?? getTripLatLng(trip, index);
 
             return (
               <TripPhotoMapMarker
@@ -547,13 +616,24 @@ function MapBand({
                 position={position}
                 selected={selectedTrip?.id === trip.id}
                 onClick={() => {
+                  setMapViewVersion((value) => value + 1);
                   setSelectedTrip(trip);
-                  setPendingMapAction({ position });
                 }}
               />
             );
           })}
         </GoogleMap>
+      )}
+      {selectedTrip && selectedPreview && (
+        <TripMapPreviewCard
+          trip={selectedTrip}
+          index={selectedPreview.index}
+          style={selectedPreview.style}
+          onClose={() => {
+            setSelectedTrip(null);
+            setSelectedPreview(null);
+          }}
+        />
       )}
       {isLoaded && (
         <div className="absolute right-5 top-5 z-20 overflow-hidden rounded-lg bg-white shadow ring-1 ring-black/10">
@@ -585,7 +665,7 @@ function MapBand({
           {expanded ? '지도 접기' : '지도 펼치기'}
         </button>
       )}
-      {!showClusters && focusedTrips && (
+      {selectedTrip && (
         <button
           type="button"
           onClick={resetMap}
@@ -593,28 +673,6 @@ function MapBand({
         >
           전체 보기
         </button>
-      )}
-      {selectedTrip && (
-        <div className="absolute bottom-5 left-1/2 z-30 flex w-[320px] -translate-x-1/2 gap-3 rounded-xl bg-white p-3 shadow-xl ring-1 ring-black/5">
-          <TripVisual trip={selectedTrip} index={0} className="h-20 w-24 flex-shrink-0 rounded-lg" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <p className="line-clamp-1 text-sm font-bold text-gray-900">{selectedTrip.title}</p>
-              <button type="button" onClick={() => setSelectedTrip(null)} className="text-gray-300 hover:text-gray-500">
-                <X size={14} />
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-400">{selectedTrip.city}, {selectedTrip.country}</p>
-            <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-red-500">
-              <Heart size={12} className="fill-red-500" /> {selectedTrip.likeCount ?? 0}
-            </p>
-            {!selectedTrip.id.startsWith('map-fallback') && (
-              <Link href={`/trips/${selectedTrip.id}`} className="mt-2 inline-flex text-xs font-bold text-emerald-600 hover:text-emerald-700">
-                상세보기
-              </Link>
-            )}
-          </div>
-        </div>
       )}
     </div>
   );
