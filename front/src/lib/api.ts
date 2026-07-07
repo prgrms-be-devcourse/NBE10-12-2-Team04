@@ -276,8 +276,8 @@ export const userApi = {
 // ---------- Feed ----------
 export const feedApi = {
   getTopLiked: async () => {
-    const trips = await request<Record<string, unknown>[]>('/api/v1/feed/trips/top-liked');
-    return trips.map(normalizeTrip);
+    const result = await request<unknown>('/api/v1/feed/trips/top-liked');
+    return getListData<Record<string, unknown>>(result).map(normalizeTrip);
   },
   getRecent: async (params?: { page?: number; size?: number }) => {
     const query = params ? `?page=${params.page ?? 0}&size=${params.size ?? 10}` : '';
