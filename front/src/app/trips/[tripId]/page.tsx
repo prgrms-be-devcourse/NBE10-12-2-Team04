@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GoogleMap, InfoWindow, Marker, OverlayView, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, Marker, OverlayView, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { isAuthenticated, tripApi, postApi, likeApi, userApi } from '@/lib/api';
 import type { Trip, Post } from '@/types';
@@ -293,13 +293,15 @@ function GoogleTripMap({
       ))}
       {markerPosts.map((post) => (
         selectedPostId === post.id ? (
-          <InfoWindow
+          <OverlayView
             key={`${post.id}-preview`}
             position={{ lat: post.marker!.lat, lng: post.marker!.lng }}
-            options={{ pixelOffset: new google.maps.Size(0, -34), disableAutoPan: true }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
-            <PostPreviewCard post={post} />
-          </InfoWindow>
+            <div className="pointer-events-auto -translate-x-1/2 -translate-y-[calc(100%+58px)]">
+              <PostPreviewCard post={post} />
+            </div>
+          </OverlayView>
         ) : null
       ))}
     </GoogleMap>
@@ -407,6 +409,7 @@ export default function TripDetailPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const timelineRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ y: number; top: number } | null>(null);
 
   useEffect(() => {
@@ -470,6 +473,12 @@ export default function TripDetailPage() {
     setFocusedPostId(null);
   };
 
+  const toggleMapExpanded = () => {
+    const nextExpanded = !mapExpanded;
+    setMapExpanded(nextExpanded);
+    setSheetTop(nextExpanded ? Math.max(160, window.innerHeight - 240) : Math.max(340, window.innerHeight - 360));
+  };
+
   const handleLike = async () => {
     if (!isAuthenticated()) {
       router.push('/auth/login');
@@ -510,7 +519,14 @@ export default function TripDetailPage() {
     if (post.date !== activeDay) setActiveDay(post.date);
     setFocusedPostId(post.id);
     window.setTimeout(() => {
-      postRefs.current[post.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = timelineRef.current;
+      const target = postRefs.current[post.id];
+      if (!container || !target) return;
+
+      container.scrollTo({
+        top: target.offsetTop - container.clientHeight / 2 + target.clientHeight / 2,
+        behavior: 'smooth',
+      });
     }, 80);
   };
 
@@ -562,18 +578,18 @@ export default function TripDetailPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 z-0">
         <TripMap posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} />
       </div>
 
       {/* 상단 네비 */}
-      <div className="relative z-10 flex items-center justify-between px-5 pt-5">
+      <div className="relative z-40 flex items-center justify-between px-5 pt-5">
         <button onClick={() => router.back()} className="w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowLeft size={16} />
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setMapExpanded((value) => !value)}
+            onClick={toggleMapExpanded}
             className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors"
           >
             {mapExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
@@ -592,18 +608,18 @@ export default function TripDetailPage() {
         </div>
       </div>
       {message && (
-        <p className="absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-500 shadow">
+        <p className="absolute left-1/2 top-16 z-[70] -translate-x-1/2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-500 shadow">
           {message}
         </p>
       )}
 
       {/* 하단 상세 패널 */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        className="absolute bottom-0 left-0 right-0 z-[60] flex flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
         style={{ top: sheetTop }}
       >
           {/* 드래그 핸들 */}
-          <div onMouseDown={startSheetDrag} className="flex cursor-grab justify-center px-5 pt-3 active:cursor-grabbing">
+          <div onMouseDown={startSheetDrag} className="relative z-10 flex shrink-0 cursor-grab justify-center bg-white px-5 pt-3 active:cursor-grabbing">
             <span className="h-1.5 w-12 rounded-full bg-gray-300" />
           </div>
           <div className="flex justify-between items-center px-5 pt-3 pb-2">
@@ -656,7 +672,7 @@ export default function TripDetailPage() {
           {days.length > 0 && <DayTabs days={days} active={activeDay} onSelect={handleSelectDay} />}
 
           {/* 타임라인 */}
-          <div className="flex-1 overflow-y-auto px-5 pb-6">
+          <div ref={timelineRef} className="flex-1 overflow-y-auto px-5 pb-6">
             {dayPosts.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">이 날의 기록이 없습니다.</p>
             ) : (

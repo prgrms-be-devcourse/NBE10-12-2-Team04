@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, Marker, OverlayView, useJsApiLoader } from '@react-google-maps/api';
 import {
   Camera,
   ChevronLeft,
@@ -82,16 +82,6 @@ function getFeedClusterCellSize(zoom: number) {
   return 1;
 }
 
-function getTripMarkerIcon(trip: Partial<Trip>, selected = false) {
-  if (!trip.thumbnailUrl || typeof google === 'undefined') return undefined;
-
-  return {
-    url: trip.thumbnailUrl,
-    scaledSize: new google.maps.Size(selected ? 46 : 38, selected ? 46 : 38),
-    anchor: new google.maps.Point(selected ? 23 : 19, selected ? 46 : 38),
-  };
-}
-
 function TripVisual({
   trip,
   index,
@@ -121,6 +111,40 @@ function TripVisual({
         </div>
       )}
     </div>
+  );
+}
+
+function TripPhotoMapMarker({
+  trip,
+  index,
+  position,
+  selected,
+  onClick,
+}: {
+  trip: Trip;
+  index: number;
+  position: { lat: number; lng: number };
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const sizeClass = selected ? 'h-14 w-14' : 'h-12 w-12';
+
+  return (
+    <OverlayView position={position} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group relative -translate-x-1/2 -translate-y-full pb-2 transition-transform hover:scale-105"
+        title={trip.title}
+      >
+        <span className="absolute bottom-1 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-white bg-white shadow-md" />
+        <span className={`relative z-10 block overflow-hidden rounded-full border-[3px] bg-white shadow-lg ${
+          selected ? 'border-emerald-600 ring-4 ring-emerald-500/20' : 'border-white'
+        } ${sizeClass}`}>
+          <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full rounded-full" />
+        </span>
+      </button>
+    </OverlayView>
   );
 }
 
@@ -446,14 +470,16 @@ function MapBand({ trips, fillHeight = false }: { trips: Trip[]; fillHeight?: bo
           {!showClusters && visibleTrips.map((trip, index) => {
             const base = getTripLatLng(trip, index);
             const offset = visibleTrips.length === 1 ? 0 : (index - (visibleTrips.length - 1) / 2) * 0.004;
+            const position = { lat: base.lat + offset, lng: base.lng + offset };
 
             return (
-              <Marker
+              <TripPhotoMapMarker
                 key={trip.id}
-                position={{ lat: base.lat + offset, lng: base.lng + offset }}
+                trip={trip}
+                index={index}
+                position={position}
+                selected={selectedTrip?.id === trip.id}
                 onClick={() => setSelectedTrip(trip)}
-                icon={getTripMarkerIcon(trip, selectedTrip?.id === trip.id)}
-                title={trip.title}
               />
             );
           })}
