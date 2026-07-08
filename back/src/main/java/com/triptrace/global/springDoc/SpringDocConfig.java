@@ -3,6 +3,7 @@ package com.triptrace.global.springDoc;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +15,8 @@ import org.springframework.context.annotation.Configuration;
         title = "API 서버",
         version = "beta",
         description = "API 서버 문서입니다."
-    )
+    ),
+    security = @SecurityRequirement(name = "bearerAuth")
 )
 @SecurityScheme(
     name = "bearerAuth",
