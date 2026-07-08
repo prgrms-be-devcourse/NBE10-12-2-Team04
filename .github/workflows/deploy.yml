@@ -4,12 +4,83 @@ on:
   push:
     branches:
       - main
+# 레포 소유자 설정
+env:
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/nbe10-12-2-team04-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/nbe10-12-2-team04-frontend
 
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    # 해당 job의 권한 설정 기본 read-only
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          # 워크플로우 트리거한 사용자
+          username: ${{ github.actor }}
+          # github actions가 매 실행마다 자동 발급하는 임시 토큰
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        # 도커 빌드 엔진, cache-from 기능 사용하기 위해 사용
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./back
+          push: true
+          # 태그 두 개, latest 배포에 사용, github.sha 이전 커밋 sha 이미지 롤백용
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          build-args: |
+            LOG_DIR=${{ vars.LOG_DIR }}
+            IMAGE_UPLOAD=${{ vars.IMAGE_UPLOAD }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # github actions가 제공하는 캐시 저장소에 빌드 레이어를 저장하고 재사용
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./front
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # compose만 copy
+      - name: Copy docker-compose.prod.yml to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "~/NBE10-12-2-Team04"
+
+      - name: Pull and restart containers
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
@@ -17,5 +88,5 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ~/NBE10-12-2-Team04
-            git pull
-            docker compose up --build -d
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
