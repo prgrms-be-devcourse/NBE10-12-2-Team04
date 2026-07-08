@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { GoogleMap, Marker, OverlayView, Polyline, useJsApiLoader } from '@react-google-maps/api';
-import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Calendar, Globe, Lock, Pencil, Maximize2, Minimize2, Trash2, X } from 'lucide-react';
 import { isAuthenticated, tripApi, postApi, likeApi, userApi } from '@/lib/api';
 import type { Trip, Post } from '@/types';
 
@@ -84,11 +84,14 @@ function getPostMarkerImageUrl(post: Post) {
   return post.marker?.representativeImageUrl || post.images?.[0]?.url || '';
 }
 
-function PostPreviewCard({ post }: { post: Post }) {
+function PostPreviewCard({ post, style, onClose }: { post: Post; style?: CSSProperties; onClose?: () => void }) {
   const imageUrl = getPostMarkerImageUrl(post);
 
   return (
-    <div className="flex w-[220px] gap-2 rounded-lg bg-white p-2 shadow-lg ring-1 ring-black/5">
+    <div
+      className={`${style ? 'absolute z-[70]' : ''} flex w-[220px] gap-2 rounded-lg bg-white p-2 shadow-lg ring-1 ring-black/5`}
+      style={style}
+    >
       <div className="h-14 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
         {imageUrl ? (
           <img src={imageUrl} alt="" className="h-full w-full object-cover" />
@@ -99,7 +102,14 @@ function PostPreviewCard({ post }: { post: Post }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-xs font-bold text-gray-900">{post.title}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-1 text-xs font-bold text-gray-900">{post.title}</p>
+          {onClose && (
+            <button type="button" onClick={onClose} className="shrink-0 text-gray-300 hover:text-gray-500" aria-label="미리보기 닫기">
+              <X size={13} />
+            </button>
+          )}
+        </div>
         <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-500">{post.content || post.marker?.placeName || '간단한 기록을 확인하세요.'}</p>
       </div>
     </div>
@@ -237,12 +247,14 @@ function GoogleTripMap({
   posts,
   selectedPostId,
   onMarkerSelect,
+  onMarkerClear,
   sheetTop,
   dayKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
+  onMarkerClear: () => void;
   sheetTop: number;
   dayKey: string;
 }) {
@@ -257,6 +269,8 @@ function GoogleTripMap({
   const fittedPathRef = useRef('');
   const idleFitPathRef = useRef('');
   const latestFitRef = useRef<(map: google.maps.Map, fit: boolean) => void>(() => {});
+  const [mapViewVersion, setMapViewVersion] = useState(0);
+  const [preview, setPreview] = useState<{ post: LocatedPost; style: CSSProperties } | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey,
     id: GOOGLE_MAPS_SCRIPT_ID,
@@ -289,6 +303,56 @@ function GoogleTripMap({
     }
   }, [path, sheetTop]);
 
+  const getPreviewStyle = useCallback((position: { lat: number; lng: number }): CSSProperties | null => {
+    const map = mapRef.current;
+    const bounds = map?.getBounds();
+    if (!map || !bounds) return null;
+
+    const north = bounds.getNorthEast().lat();
+    const south = bounds.getSouthWest().lat();
+    let east = bounds.getNorthEast().lng();
+    const west = bounds.getSouthWest().lng();
+    if (east < west) east += 360;
+
+    const normalizedLng = position.lng < west ? position.lng + 360 : position.lng;
+    const latRange = Math.max(0.0001, north - south);
+    const lngRange = Math.max(0.0001, east - west);
+    const mapRect = map.getDiv().getBoundingClientRect();
+    const markerX = ((normalizedLng - west) / lngRange) * mapRect.width;
+    const markerY = ((north - position.lat) / latRange) * mapRect.height;
+    const cardWidth = 220;
+    const cardHeight = 76;
+    const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
+    const topLimit = 76;
+    const bottomLimit = Math.max(topLimit + cardHeight, sheetTop - 24);
+    const left = clamp(markerX - cardWidth / 2, 16, mapRect.width - cardWidth - 16);
+    const top = clamp(markerY - cardHeight - 66, topLimit, bottomLimit - cardHeight);
+
+    return { left, top };
+  }, [sheetTop]);
+
+  const updatePreview = useCallback(() => {
+    if (!selectedPostId) {
+      setPreview(null);
+      return;
+    }
+
+    const post = markerPosts.find((item) => item.id === selectedPostId);
+    if (!post) {
+      setPreview(null);
+      return;
+    }
+
+    const position = displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng };
+    const style = getPreviewStyle(position);
+    if (!style) {
+      setPreview(null);
+      return;
+    }
+
+    setPreview({ post, style });
+  }, [displayPositions, getPreviewStyle, markerPosts, selectedPostId]);
+
   useEffect(() => {
     latestFitRef.current = moveMapToCurrentDay;
   }, [moveMapToCurrentDay]);
@@ -320,6 +384,22 @@ function GoogleTripMap({
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [isLoaded, path.length, pathKey]);
 
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || path.length === 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (!mapRef.current) return;
+      latestFitRef.current(mapRef.current, true);
+      setMapViewVersion((value) => value + 1);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isLoaded, path.length, sheetTop]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(updatePreview);
+    return () => window.cancelAnimationFrame(frame);
+  }, [mapViewVersion, updatePreview]);
+
   if (loadError) {
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
   }
@@ -333,69 +413,70 @@ function GoogleTripMap({
   }
 
   return (
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      options={mapOptions}
-      onLoad={(map) => {
-        mapRef.current = map;
-        moveMapToCurrentDay(map, true);
-        fittedPathRef.current = pathKey;
-      }}
-      onIdle={() => {
-        if (!mapRef.current || path.length === 0 || idleFitPathRef.current === pathKey) return;
-        idleFitPathRef.current = pathKey;
-        latestFitRef.current(mapRef.current, true);
-      }}
-      onUnmount={() => {
-        mapRef.current = null;
-      }}
-    >
-      {path.length > 1 && (
-        <Polyline
-          key={pathKey}
-          path={path.map(({ lat, lng }) => ({ lat, lng }))}
-          options={{
-            icons: [{
-              icon: {
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 3,
-                strokeColor: '#059669',
-                fillColor: '#059669',
-                fillOpacity: 1,
-              },
-              offset: '100%',
-              repeat: '72px',
-            }],
-            strokeColor: '#059669',
-            strokeOpacity: 0.75,
-            strokeWeight: 4,
-          }}
+    <div className="relative h-full w-full overflow-hidden">
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        options={mapOptions}
+        onLoad={(map) => {
+          mapRef.current = map;
+          moveMapToCurrentDay(map, true);
+          fittedPathRef.current = pathKey;
+          setMapViewVersion((value) => value + 1);
+        }}
+        onIdle={() => {
+          setMapViewVersion((value) => value + 1);
+          if (!mapRef.current || path.length === 0 || idleFitPathRef.current === pathKey) return;
+          idleFitPathRef.current = pathKey;
+          latestFitRef.current(mapRef.current, true);
+        }}
+        onUnmount={() => {
+          mapRef.current = null;
+        }}
+      >
+        {path.length > 1 && (
+          <Polyline
+            key={pathKey}
+            path={path.map(({ lat, lng }) => ({ lat, lng }))}
+            options={{
+              icons: [{
+                icon: {
+                  path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                  scale: 3,
+                  strokeColor: '#059669',
+                  fillColor: '#059669',
+                  fillOpacity: 1,
+                },
+                offset: '100%',
+                repeat: '72px',
+              }],
+              strokeColor: '#059669',
+              strokeOpacity: 0.75,
+              strokeWeight: 4,
+            }}
+          />
+        )}
+        {markerPosts.map((post, index) => (
+          <PhotoMapMarker
+            key={post.id}
+            post={post}
+            position={displayPositions.get(post.id) ?? { lat: post.marker!.lat, lng: post.marker!.lng }}
+            index={index}
+            selected={selectedPostId === post.id}
+            onClick={() => {
+              onMarkerSelect(post);
+              setMapViewVersion((value) => value + 1);
+            }}
+          />
+        ))}
+      </GoogleMap>
+      {preview && (
+        <PostPreviewCard
+          post={preview.post}
+          style={preview.style}
+          onClose={onMarkerClear}
         />
       )}
-      {markerPosts.map((post, index) => (
-        <PhotoMapMarker
-          key={post.id}
-          post={post}
-          position={displayPositions.get(post.id) ?? { lat: post.marker!.lat, lng: post.marker!.lng }}
-          index={index}
-          selected={selectedPostId === post.id}
-          onClick={() => onMarkerSelect(post)}
-        />
-      ))}
-      {markerPosts.map((post) => (
-        selectedPostId === post.id ? (
-          <OverlayView
-            key={`${post.id}-preview`}
-            position={displayPositions.get(post.id) ?? { lat: post.marker.lat, lng: post.marker.lng }}
-            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-          >
-            <div className="pointer-events-auto -translate-x-1/2 -translate-y-[calc(100%+58px)]">
-              <PostPreviewCard post={post} />
-            </div>
-          </OverlayView>
-        ) : null
-      ))}
-    </GoogleMap>
+    </div>
   );
 }
 
@@ -403,12 +484,14 @@ function TripMap({
   posts,
   selectedPostId,
   onMarkerSelect,
+  onMarkerClear,
   sheetTop,
   dayKey,
 }: {
   posts: Post[];
   selectedPostId: string | null;
   onMarkerSelect: (post: Post) => void;
+  onMarkerClear: () => void;
   sheetTop: number;
   dayKey: string;
 }) {
@@ -416,7 +499,7 @@ function TripMap({
     return <FallbackTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} />;
   }
 
-  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} sheetTop={sheetTop} dayKey={dayKey} />;
+  return <GoogleTripMap posts={posts} selectedPostId={selectedPostId} onMarkerSelect={onMarkerSelect} onMarkerClear={onMarkerClear} sheetTop={sheetTop} dayKey={dayKey} />;
 }
 
 // ── Day 탭 ────────────────────────────────────────────────────────────
@@ -631,7 +714,7 @@ export default function TripDetailPage() {
 
   const moveSheetDrag = (event: MouseEvent) => {
     if (!dragRef.current) return;
-    const minTop = mapExpanded ? 96 : 160;
+    const minTop = mapExpanded ? 132 : 160;
     const maxTop = window.innerHeight - 220;
     const next = dragRef.current.top + event.clientY - dragRef.current.y;
     setSheetTop(Math.max(minTop, Math.min(maxTop, next)));
@@ -672,11 +755,19 @@ export default function TripDetailPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
       {/* 지도 (배경) */}
       <div className="absolute inset-0 z-0">
-        <TripMap key={activeDay} posts={dayPosts} selectedPostId={focusedPostId} onMarkerSelect={focusPost} sheetTop={sheetTop} dayKey={activeDay} />
+        <TripMap
+          key={activeDay}
+          posts={dayPosts}
+          selectedPostId={focusedPostId}
+          onMarkerSelect={focusPost}
+          onMarkerClear={() => setFocusedPostId(null)}
+          sheetTop={sheetTop}
+          dayKey={activeDay}
+        />
       </div>
 
       {/* 상단 네비 */}
-      <div className="relative z-40 flex items-center justify-between px-5 pt-5">
+      <div className="absolute left-5 right-5 top-5 z-[80] flex items-center justify-between">
         <button onClick={() => router.back()} className="w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowLeft size={16} />
         </button>
