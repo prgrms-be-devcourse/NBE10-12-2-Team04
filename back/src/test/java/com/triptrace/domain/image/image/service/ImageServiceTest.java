@@ -12,7 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.triptrace.domain.image.image.dto.ImageServiceResponse;
+import com.triptrace.domain.image.image.dto.response.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.entity.UploadStatus;
 import com.triptrace.domain.image.image.repository.ImageRepository;
@@ -66,7 +66,7 @@ class ImageServiceTest {
         ));
     }
 
-    private Image createImage(Member owner, Trip trip, Post post) {
+    private Image toEntity(Member owner, Trip trip, Post post) {
         return imageRepository.save(new Image(
             owner, trip, post,
             "https://example.com/images/%s.jpg".formatted(java.util.UUID.randomUUID()),
@@ -80,7 +80,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, null);
+        Image image = toEntity(owner, trip, null);
 
         ImageServiceResponse response = imageService.modifyPost(owner, trip, post, image.getId());
 
@@ -94,7 +94,7 @@ class ImageServiceTest {
         Member other = createMember("other");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, null);
+        Image image = toEntity(owner, trip, null);
 
         assertThatThrownBy(() -> imageService.modifyPost(other, trip, post, image.getId()))
             .isInstanceOf(ServiceException.class);
@@ -107,7 +107,7 @@ class ImageServiceTest {
         Trip trip = createTrip(owner);
         Trip otherTrip = createTrip(owner);
         Post postInOtherTrip = createPost(otherTrip);
-        Image image = createImage(owner, trip, null);
+        Image image = toEntity(owner, trip, null);
 
         assertThatThrownBy(() -> imageService.modifyPost(owner, otherTrip, postInOtherTrip, image.getId()))
             .isInstanceOf(ServiceException.class);
@@ -119,7 +119,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
 
         imageService.delete(owner, trip, post, image.getId());
 
@@ -132,7 +132,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
 
         imageService.delete(owner, trip, post, image.getOriginalFileUrl());
 
@@ -145,7 +145,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
         Marker marker = markerRepository.save(new Marker(
             post,
             java.math.BigDecimal.valueOf(35.0116363),
@@ -165,13 +165,38 @@ class ImageServiceTest {
     }
 
     @Test
+    @DisplayName("post 범위 없이 대표이미지를 삭제해도 참조를 해제한다")
+    void deleteRepresentativeImageWithoutPostScope() {
+        Member owner = createMember("owner");
+        Trip trip = createTrip(owner);
+        Post post = createPost(trip);
+        Image image = toEntity(owner, trip, post);
+        Marker marker = markerRepository.save(new Marker(
+            post,
+            java.math.BigDecimal.valueOf(35.0116363),
+            java.math.BigDecimal.valueOf(135.7680294),
+            "교토역",
+            LocalDateTime.of(2024, 4, 1, 12, 0),
+            MarkerSource.AUTO,
+            image
+        ));
+        trip.changeRepresentativeImage(image);
+
+        imageService.delete(owner, trip, image.getId());
+
+        assertThat(imageRepository.findById(image.getId())).isEmpty();
+        assertThat(tripRepository.findById(trip.getId()).orElseThrow().getRepresentativeImage()).isNull();
+        assertThat(markerRepository.findById(marker.getId()).orElseThrow().getRepresentativeImage()).isNull();
+    }
+
+    @Test
     @DisplayName("소유자가 아니면 삭제할 수 없다")
     void deleteNotOwner() {
         Member owner = createMember("owner");
         Member other = createMember("other");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
 
         assertThatThrownBy(() -> imageService.delete(other, trip, post, image.getId()))
             .isInstanceOf(ServiceException.class);
@@ -185,7 +210,7 @@ class ImageServiceTest {
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
         Post anotherPost = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
 
         assertThatThrownBy(() -> imageService.delete(owner, trip, anotherPost, image.getId()))
             .isInstanceOf(ServiceException.class);
@@ -198,7 +223,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, post);
+        Image image = toEntity(owner, trip, post);
 
         imageService.delete(owner, trip, null, image.getId());
 
@@ -211,7 +236,7 @@ class ImageServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner);
         Post post = createPost(trip);
-        Image image = createImage(owner, trip, null);
+        Image image = toEntity(owner, trip, null);
 
         assertThatThrownBy(() -> imageService.delete(owner, trip, post, image.getId()))
             .isInstanceOf(ServiceException.class);

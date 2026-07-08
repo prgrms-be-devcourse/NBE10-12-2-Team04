@@ -1,9 +1,9 @@
 package com.triptrace.domain.image.image.controller;
 
-import com.triptrace.domain.image.image.dto.ImageUploadResponse;
-import com.triptrace.domain.image.image.facade.ImageDeleteFacade;
-import com.triptrace.domain.image.image.facade.ImageModifyFacade;
-import com.triptrace.domain.image.image.facade.ImageUploadFacade;
+import com.triptrace.domain.image.image.dto.response.ImageUploadResponse;
+import com.triptrace.domain.image.image.application.ImageDeleteUseCase;
+import com.triptrace.domain.image.image.application.ImageModifyUseCase;
+import com.triptrace.domain.image.image.application.ImageUploadUseCase;
 import com.triptrace.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,43 +16,44 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class ApiV1ImageController {
-    private final ImageUploadFacade imageProcessFacade;
-    private final ImageDeleteFacade imageDeleteFacade;
-    private final ImageModifyFacade imageModifyFacade;
+    private final ImageUploadUseCase imageUploadUseCase;
+    private final ImageDeleteUseCase imageDeleteUseCase;
+    private final ImageModifyUseCase imageModifyUseCase;
 
     @PostMapping("/trips/{tripId}/images")
     public RsData<List<ImageUploadResponse>> upload(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @RequestParam MultipartFile[] images
-    ){
+    ) {
         return new RsData<>(
             "200-1",
             "업로드 되었습니다.",
-            imageProcessFacade.uploadImages(ownerId,tripId, images)
+            imageUploadUseCase.uploadImages(ownerId, tripId, images)
         );
     }
+
     @PostMapping("/trips/{tripId}/posts/{postId}/images")
     public RsData<List<ImageUploadResponse>> upload(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @RequestParam MultipartFile[] images
-    ){
+    ) {
         return new RsData<>(
             "200-1",
             "업로드 되었습니다.",
-            imageProcessFacade.uploadImages(ownerId, tripId, postId, images)
+            imageUploadUseCase.uploadImages(ownerId, tripId, postId, images)
         );
     }
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images/{imageId}")
     public RsData<?> delete(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @PathVariable Long imageId
-    ){
-        imageDeleteFacade.deleteById(ownerId,tripId,postId, imageId);
+    ) {
+        imageDeleteUseCase.deleteById(ownerId, tripId, postId, imageId);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",
@@ -62,11 +63,11 @@ public class ApiV1ImageController {
 
     @DeleteMapping("/trips/{tripId}/images/{imageId}")
     public RsData<?> delete(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long imageId
-    ){
-        imageDeleteFacade.deleteById(ownerId,tripId, imageId);
+    ) {
+        imageDeleteUseCase.deleteById(ownerId, tripId, imageId);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",
@@ -76,12 +77,12 @@ public class ApiV1ImageController {
 
     @DeleteMapping("/trips/{tripId}/posts/{postId}/images")
     public RsData<?> delete(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @PathVariable Long postId,
         @RequestParam String imageUrl
-    ){
-        imageDeleteFacade.deleteByUrl(ownerId,tripId, postId, imageUrl);
+    ) {
+        imageDeleteUseCase.deleteByUrl(ownerId, tripId, postId, imageUrl);
         return new RsData<>(
             "200-1",
             "삭제 되었습니다.",
@@ -90,19 +91,16 @@ public class ApiV1ImageController {
     }
     @PatchMapping("/trips/{tripId}/images")
     public RsData<?> modify(
-        @AuthenticationPrincipal  Long ownerId,
+        @AuthenticationPrincipal Long ownerId,
         @PathVariable Long tripId,
         @RequestParam Long postId,
         @RequestParam Long imageId
-    ){
+    ) {
 
         return new RsData<>(
             "200-1",
             "수정 되었습니다.",
-            imageModifyFacade.modifyById(ownerId,tripId,postId,imageId)
+            imageModifyUseCase.modifyById(ownerId, tripId, postId, imageId)
         );
     }
-
-
-
 }

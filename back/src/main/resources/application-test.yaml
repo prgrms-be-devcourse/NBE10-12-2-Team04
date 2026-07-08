@@ -13,9 +13,12 @@ custom:
     jpg: jpeg
   upload:
     path: src/test/resources
-    serving: /images/serving
-    thumbnail: /images/thumbnail
-    profile: /images/profile
+    serving-path: images/serving
+    thumbnail-path: images/thumbnail
+    profile-path: images/profile
+    serving-url: /images/serving
+    thumbnail-url: /images/thumbnail
+    profile-url: /images/profile
   thumbnail:
     width: 1024
     height: 1024

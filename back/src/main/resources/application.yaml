@@ -2,13 +2,17 @@ spring:
   application:
     name: triptrace
   profiles:
-    active: dev, image-processor
+    active: dev
   output:
     ansi:
       enabled: always
   datasource:
     hikari:
       auto-commit: false
+  servlet:
+    multipart:
+      max-file-size: ${IMAGE_FILE_SIZE:10MB}
+      max-request-size: ${MAX_IMAGE_FILES_SIZE:100MB}
   jpa:
     show-sql: true
     hibernate:
@@ -41,4 +45,16 @@ custom:
   google:
     maps:
       api-key: ${GOOGLE_MAPS_API_KEY:}
-  profileImage: ${TEMP_PROFILE_IMAGE:src/test/resources/images/profile}
+  ext:
+    jpg: jpeg
+  upload:
+    path: ${IMAGE_UPLOAD:/images}
+    serving-path: ${SERVING_UPLOAD_PATH:serving}
+    thumbnail-path: ${THUMBNAIL_UPLOAD_PATH:thumbnail}
+    profile-path: ${PROFILE_UPLOAD_PATH:profile}
+    serving-url: ${SERVING_UPLOAD_URL:/images/serving}
+    thumbnail-url: ${THUMBNAIL_UPLOAD_URL:/images/thumbnail}
+    profile-url: ${PROFILE_UPLOAD_URL:/images/profile}
+  thumbnail:
+    width: ${THUMBNAIL_WIDTH:1024}
+    height: ${THUMBNAIL_HEIGHT:1024}

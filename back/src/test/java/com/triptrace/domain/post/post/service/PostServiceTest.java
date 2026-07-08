@@ -193,7 +193,7 @@ class PostServiceTest {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "교토 여행");
         Post post = createPost(trip, LocalDate.of(2026, 1, 1), "삭제할 게시물");
-        Image image = createImage(owner, trip, post, "kyoto.jpg");
+        Image image = toEntity(owner, trip, post, "kyoto.jpg");
         Marker marker = markerRepository.save(new Marker(
             post,
             BigDecimal.valueOf(35.0116363),
@@ -250,7 +250,7 @@ class PostServiceTest {
         ));
     }
 
-    private Image createImage(Member owner, Trip trip, Post post, String fileName) {
+    private Image toEntity(Member owner, Trip trip, Post post, String fileName) {
         return imageRepository.save(new Image(
             owner,
             trip,
