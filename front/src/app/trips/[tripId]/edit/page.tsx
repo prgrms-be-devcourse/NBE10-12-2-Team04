@@ -426,6 +426,24 @@ function MarkerEditor({
     ? { lat: Number(marker.lat), lng: Number(marker.lng) }
     : null;
 
+  const geocodeKeyword = async (keyword: string): Promise<PlaceCandidate[]> => {
+    if (!googleMapsApiKey || !isLoaded || typeof google === 'undefined' || !google.maps.Geocoder) {
+      return [];
+    }
+
+    const geocoder = new google.maps.Geocoder();
+    const response = await geocoder.geocode({ address: keyword, region: 'kr' });
+
+    return response.results.slice(0, 5).map((result) => ({
+      placeId: result.place_id,
+      name: result.address_components[0]?.long_name ?? result.formatted_address ?? keyword,
+      address: result.formatted_address,
+      latitude: result.geometry.location.lat(),
+      longitude: result.geometry.location.lng(),
+      types: result.types,
+    }));
+  };
+
   const setM = (k: keyof Marker, v: unknown) => {
     if (!marker) return;
     const nextMarker = { ...marker, [k]: v };
@@ -435,9 +453,45 @@ function MarkerEditor({
     }
   };
 
+  const loadSearchCandidates = async (keyword: string) => {
+    setCandidatesOpen(true);
+    setCandidateMode('search');
+    setCandidatesLoading(true);
+    setCandidatesError('');
+    try {
+      let data = await placeApi.search(keyword);
+      if (data.length === 0) {
+        data = await geocodeKeyword(keyword);
+      }
+      setCandidates(data);
+    } catch (error) {
+      setCandidatesError(error instanceof Error ? error.message : '장소 검색에 실패했습니다.');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const searchPlaces = async () => {
+    const keyword = searchKeyword.trim();
+    if (!keyword) {
+      setCandidatesError('검색어를 입력해주세요.');
+      setCandidatesOpen(true);
+      return;
+    }
+
+    await loadSearchCandidates(keyword);
+  };
+
   const loadCandidates = async () => {
     if (!marker) return;
     if (marker.lat == null || marker.lng == null) {
+      const keyword = searchKeyword.trim() || marker.placeName?.trim();
+      if (keyword) {
+        setSearchKeyword(keyword);
+        await loadSearchCandidates(keyword);
+        return;
+      }
+
       setCandidatesError('좌표가 없어 주변 장소를 조회할 수 없습니다. 장소명 또는 주소로 검색해주세요.');
       setCandidatesOpen(true);
       setCandidateMode('nearby');
@@ -459,28 +513,6 @@ function MarkerEditor({
       setCandidates(data);
     } catch (error) {
       setCandidatesError(error instanceof Error ? error.message : '장소 후보 조회에 실패했습니다.');
-    } finally {
-      setCandidatesLoading(false);
-    }
-  };
-
-  const searchPlaces = async () => {
-    const keyword = searchKeyword.trim();
-    if (!keyword) {
-      setCandidatesError('검색어를 입력해주세요.');
-      setCandidatesOpen(true);
-      return;
-    }
-
-    setCandidatesOpen(true);
-    setCandidateMode('search');
-    setCandidatesLoading(true);
-    setCandidatesError('');
-    try {
-      const data = await placeApi.search(keyword);
-      setCandidates(data);
-    } catch (error) {
-      setCandidatesError(error instanceof Error ? error.message : '장소 검색에 실패했습니다.');
     } finally {
       setCandidatesLoading(false);
     }
