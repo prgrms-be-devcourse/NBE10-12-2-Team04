@@ -278,22 +278,46 @@ function GoogleTripMap({
 
   const moveMapToCurrentDay = useCallback((map: google.maps.Map, fit: boolean) => {
     if (path.length === 0) return;
-    const bottomPadding = Math.max(160, window.innerHeight - sheetTop + 64);
+    const mapHeight = map.getDiv().clientHeight || window.innerHeight;
+    const visibleMapHeight = Math.max(96, Math.min(sheetTop, mapHeight));
+    const topPadding = visibleMapHeight < 220 ? 72 : 88;
+    const bottomVisiblePadding = visibleMapHeight < 220 ? 28 : 48;
+    const fitAreaBottom = Math.max(topPadding + 56, visibleMapHeight - bottomVisiblePadding);
+    const bottomPadding = Math.max(120, mapHeight - fitAreaBottom);
     const bounds = new google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend({ lat: point.lat, lng: point.lng }));
     if (path.length === 1) {
-      bounds.extend({ lat: path[0].lat + 0.01, lng: path[0].lng + 0.01 });
-      bounds.extend({ lat: path[0].lat - 0.01, lng: path[0].lng - 0.01 });
+      bounds.extend({ lat: path[0].lat + 0.006, lng: path[0].lng + 0.006 });
+      bounds.extend({ lat: path[0].lat - 0.006, lng: path[0].lng - 0.006 });
     }
+    const northEast = bounds.getNorthEast();
+    const southWest = bounds.getSouthWest();
+    const span = Math.max(
+      Math.abs(northEast.lat() - southWest.lat()),
+      Math.abs(northEast.lng() - southWest.lng()),
+    );
+    const zoomFloor = path.length === 1
+      ? 14
+      : span < 0.02
+        ? 12
+        : 0;
     const padding = {
-      top: 96,
-      right: 72,
+      top: topPadding,
+      right: 64,
       bottom: bottomPadding,
-      left: 72,
+      left: 64,
     };
 
     if (fit) {
       map.fitBounds(bounds, padding);
+      if (zoomFloor > 0) {
+        window.setTimeout(() => {
+          const zoom = map.getZoom();
+          if (typeof zoom === 'number' && zoom < zoomFloor) {
+            map.setZoom(zoomFloor);
+          }
+        }, 0);
+      }
     } else {
       if (path.length === 1) {
         map.panTo(path[0]);
@@ -589,6 +613,13 @@ export default function TripDetailPage() {
   const dragRef = useRef<{ y: number; top: number } | null>(null);
 
   useEffect(() => {
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [tripId]);
+
+  useEffect(() => {
     async function loadTripDetail() {
       try {
         const [t, p] = await Promise.all([
@@ -767,7 +798,7 @@ export default function TripDetailPage() {
       </div>
 
       {/* 상단 네비 */}
-      <div className="absolute left-5 right-5 top-5 z-[80] flex items-center justify-between">
+      <div className="absolute left-5 right-5 top-6 z-[80] flex items-center justify-between">
         <button onClick={() => router.back()} className="w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowLeft size={16} />
         </button>
