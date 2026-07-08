@@ -718,6 +718,7 @@ export default function TripsPage() {
   const [showModal, setShowModal] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [mounted, setMounted] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
   const shouldOpenFromQuery = searchParams.get('create') === '1';
   const shouldShowCreateModal = showModal || (mounted && shouldOpenFromQuery && isAuthenticated());
 
@@ -727,6 +728,12 @@ export default function TripsPage() {
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+    if (!isAuthenticated()) {
+      const frame = window.requestAnimationFrame(() => setAuthRequired(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
     userApi
       .getMyTrips({ page: 0, size: 8 })
       .then((d) => {
@@ -735,18 +742,9 @@ export default function TripsPage() {
         setHasMore(nextTrips.length >= 8);
         setPage(0);
       })
-      .catch(() => setMessage('내 Trip 목록을 불러오지 못했습니다.'))
+      .catch(() => setAuthRequired(true))
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    if (!shouldOpenFromQuery) return;
-
-    if (!isAuthenticated()) {
-      router.replace('/auth/login');
-    }
-  }, [mounted, router, shouldOpenFromQuery]);
+  }, [mounted]);
 
   const handleOpenCreateModal = () => {
     if (!isAuthenticated()) {
@@ -780,6 +778,20 @@ export default function TripsPage() {
       setLoadingMore(false);
     }
   };
+
+  if (mounted && (!isAuthenticated() || authRequired)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-gray-500">로그인이 필요합니다.</p>
+        <button
+          onClick={() => router.push('/auth/login')}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm"
+        >
+          로그인하러 가기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1040px] p-8">
