@@ -33,7 +33,7 @@ custom:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
   jwt:
-    secretKey: ${JWT_SECRET_KEY}
+    secretKey: ${JWT_SECRET_KEY:abcdefghijklmnopqrstuvwxyz0123456789}
   accessToken:
     expirationSeconds: ${ACCESS_TOKEN_EXPIRATION_SECONDS:18000} # 5시간
   refreshToken:
@@ -41,4 +41,4 @@ custom:
   google:
     maps:
       api-key: ${GOOGLE_MAPS_API_KEY:}
-  profileImage: ${TEMP_PROFILE_IMAGE}
+  profileImage: ${TEMP_PROFILE_IMAGE:src/test/resources/images/profile}
