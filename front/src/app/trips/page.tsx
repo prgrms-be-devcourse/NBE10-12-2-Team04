@@ -1,6 +1,6 @@
 'use client';
 
-import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dispatch, SetStateAction, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
@@ -707,6 +707,14 @@ function TripsMapView({ trips }: { trips: Trip[] }) {
 // 내 Trip 목록 페이지
 // ────────────────────────────────────────────────────────────────────
 export default function TripsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TripsPageContent />
+    </Suspense>
+  );
+}
+
+function TripsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [trips, setTrips] = useState<Trip[]>([]);

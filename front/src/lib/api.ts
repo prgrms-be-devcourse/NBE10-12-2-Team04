@@ -1,3 +1,5 @@
+import type { PlaceCandidate } from '@/types';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 type ApiResponse<T> = {
@@ -119,7 +121,7 @@ function normalizeMarker(marker: Record<string, unknown> | null | undefined) {
   };
 }
 
-function normalizePlaceCandidate(candidate: Record<string, unknown>) {
+function normalizePlaceCandidate(candidate: Record<string, unknown>): PlaceCandidate {
   return {
     placeId: candidate.placeId == null ? undefined : String(candidate.placeId),
     name: String(candidate.name ?? candidate.placeName ?? ''),
