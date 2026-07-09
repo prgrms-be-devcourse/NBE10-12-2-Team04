@@ -6,9 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.triptrace.domain.image.image.catalog.ImageExceptionCatalog;
-import com.triptrace.domain.image.image.dto.ImageServiceResponse;
+import com.triptrace.domain.image.image.dto.response.ImageServiceResponse;
 import com.triptrace.domain.image.image.entity.Image;
-import com.triptrace.domain.image.image.factory.ImageFactory;
+import com.triptrace.domain.image.image.mapper.ImageMapper;
 import com.triptrace.domain.image.image.repository.ImageRepository;
 import com.triptrace.domain.marker.marker.repository.MarkerRepository;
 import com.triptrace.domain.member.member.entity.Member;
@@ -28,12 +28,12 @@ public class ImageService {
     @Transactional
     public ImageServiceResponse create(Image image) {
         image = imageRepository.save(image);
-        return ImageFactory.createImageServiceResponse(image);
+        return ImageMapper.toServiceResponse(image);
     }
 
     @Transactional
     public ImageServiceResponse delete(Image image) {
-        ImageServiceResponse response = ImageFactory.createImageServiceResponse(image);
+        ImageServiceResponse response = ImageMapper.toServiceResponse(image);
         imageRepository.delete(image);
         return response;
     }
@@ -48,7 +48,7 @@ public class ImageService {
             throw ImageExceptionCatalog.invalid("해당 여행기의 이미지가 아닙니다.");
         }
         image.modifyPost(post);
-        return ImageFactory.createImageServiceResponse(image);
+        return ImageMapper.toServiceResponse(image);
     }
 
     @Transactional
@@ -63,6 +63,7 @@ public class ImageService {
     public ImageServiceResponse delete(Member owner, Trip trip, Long id) {
         Image image = getById(id);
         validate(owner, trip, null, image);
+        disconnectRepresentativeReferences(image.getId());
         return delete(image);
     }
 
@@ -83,41 +84,38 @@ public class ImageService {
 
     @Transactional(readOnly = true)
     public Image getById(Long id) {
-        Image image = imageRepository.findById(id)
+        return imageRepository.findById(id)
             .orElseThrow(ImageExceptionCatalog::notFound);
-        return image;
     }
 
     @Transactional(readOnly = true)
     public Image getByUrl(String originalFileUrl) {
-        Image image = imageRepository.findByOriginalFileUrl(originalFileUrl)
+        return imageRepository.findByOriginalFileUrl(originalFileUrl)
             .orElseThrow(ImageExceptionCatalog::notFound);
-        return image;
     }
 
     @Transactional(readOnly = true)
     public ImageServiceResponse findById(Long id) {
         Image image = getById(id);
-        return ImageFactory.createImageServiceResponse(image);
+        return ImageMapper.toServiceResponse(image);
     }
 
     @Transactional(readOnly = true)
     public ImageServiceResponse findByUrl(String imageUrl) {
         Image image = getByUrl(imageUrl);
-        return ImageFactory.createImageServiceResponse(image);
+        return ImageMapper.toServiceResponse(image);
     }
 
     @Transactional(readOnly = true)
     public List<ImageServiceResponse> findByTripId(Trip trip) {
-        //TODO: 고려사항 pagination?
-        List<Image> image = imageRepository.findByTripId(trip.getId());
-        return image.stream().map(ImageFactory::createImageServiceResponse).toList();
+        List<Image> images = imageRepository.findByTripId(trip.getId());
+        return images.stream().map(ImageMapper::toServiceResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ImageServiceResponse> findByPostId(Post post) {
-        List<Image> image = imageRepository.findByPostId(post.getId());
-        return image.stream().map(ImageFactory::createImageServiceResponse).toList();
+        List<Image> images = imageRepository.findByPostId(post.getId());
+        return images.stream().map(ImageMapper::toServiceResponse).toList();
     }
 
     private void validate(Member owner, Trip trip, Post post, Image image) {
@@ -133,17 +131,11 @@ public class ImageService {
     }
 
     private boolean validateOwner(Member owner, Image image) {
-        if (owner.getId().equals(image.getOwner().getId())) {
-            return true;
-        }
-        return false;
+        return owner.getId().equals(image.getOwner().getId());
     }
 
     private boolean validateTrip(Trip trip, Image image) {
-        if (trip.getId().equals(image.getTrip().getId())) {
-            return true;
-        }
-        return false;
+        return trip.getId().equals(image.getTrip().getId());
     }
 
     private boolean validatePost(Post post, Image image) {

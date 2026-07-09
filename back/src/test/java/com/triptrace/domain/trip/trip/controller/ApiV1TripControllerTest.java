@@ -203,7 +203,7 @@ class ApiV1TripControllerTest {
     void changeRepresentativeImage() throws Exception {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "대표이미지 변경 여행기");
-        Image image = createImage(owner, trip, "representative.jpg");
+        Image image = toEntity(owner, trip, "representative.jpg");
 
         mvc.perform(patch("/api/v1/trips/{tripId}/representative-image", trip.getId())
                 .with(csrf())
@@ -246,7 +246,7 @@ class ApiV1TripControllerTest {
         ));
     }
 
-    private Image createImage(Member owner, Trip trip, String fileName) {
+    private Image toEntity(Member owner, Trip trip, String fileName) {
         return imageRepository.save(new Image(
             owner,
             trip,

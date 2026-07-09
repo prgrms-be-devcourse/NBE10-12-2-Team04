@@ -1,11 +1,11 @@
 package com.triptrace.global.globalExceptionHandler;
 
-import com.triptrace.domain.image.image.module.exception.ImageProcessException;
-import com.triptrace.global.exception.ServiceException;
-import com.triptrace.global.rsData.RsData;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolationException;
-import lombok.RequiredArgsConstructor;
+import static org.springframework.http.HttpStatus.*;
+
+import java.util.Comparator;
+import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-import java.util.Comparator;
-import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
+import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
+import com.triptrace.global.exception.ServiceException;
+import com.triptrace.global.rsData.RsData;
 
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
             .getAllErrors()
             .stream()
             .filter(error -> error instanceof FieldError)
-            .map(error -> (FieldError) error)
+            .map(error -> (FieldError)error)
             .map(error -> error.getField() + "-" + error.getCode() + "-" + error.getDefaultMessage())
             .sorted()
             .collect(Collectors.joining("\n"));
@@ -136,6 +136,7 @@ public class GlobalExceptionHandler {
                 .getStatusCode()
         );
     }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<RsData<Void>> handle(MaxUploadSizeExceededException ex) {
         return new ResponseEntity<>(
