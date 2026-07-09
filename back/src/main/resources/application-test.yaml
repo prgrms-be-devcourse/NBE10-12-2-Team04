@@ -12,10 +12,11 @@ custom:
   ext:
     jpg: jpeg
   upload:
-    path: src/test/resources
-    serving: /images/serving
-    thumbnail: /images/thumbnail
-    profile: /images/profile
+    path: /images
+    serving-path: /images/serving
+    thumbnail-path: /images/thumbnail
+    profile-path: /images/profile
+    public-prefix: /
   thumbnail:
     width: 1024
     height: 1024

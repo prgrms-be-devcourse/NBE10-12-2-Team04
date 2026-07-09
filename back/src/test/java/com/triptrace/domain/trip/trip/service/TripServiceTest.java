@@ -228,7 +228,7 @@ class TripServiceTest {
         Member liker = createMember("liker");
         Trip trip = createTrip(owner, "연결 데이터가 있는 여행기");
         Post post = createPost(trip, LocalDate.of(2026, 1, 2), "둘째 날");
-        Image image = createImage(owner, trip, post, "kyoto.jpg");
+        Image image = toEntity(owner, trip, post, "kyoto.jpg");
         Marker marker = markerRepository.save(new Marker(
             post,
             BigDecimal.valueOf(35.0116363),
@@ -256,7 +256,7 @@ class TripServiceTest {
     void changeRepresentativeImage() {
         Member owner = createMember("owner");
         Trip trip = createTrip(owner, "대표이미지 변경 여행기");
-        Image image = createImage(owner, trip, null, "representative.jpg");
+        Image image = toEntity(owner, trip, null, "representative.jpg");
 
         TripResponse response = tripService.changeRepresentativeImage(trip.getId(), owner.getId(), image.getId());
 
@@ -270,7 +270,7 @@ class TripServiceTest {
         Member owner = createMember("owner");
         Member other = createMember("other");
         Trip trip = createTrip(owner, "대표이미지 변경 방어");
-        Image image = createImage(owner, trip, null, "representative.jpg");
+        Image image = toEntity(owner, trip, null, "representative.jpg");
 
         assertThatThrownBy(() -> tripService.changeRepresentativeImage(trip.getId(), other.getId(), image.getId()))
             .isInstanceOf(ServiceException.class)
@@ -312,7 +312,7 @@ class TripServiceTest {
         ));
     }
 
-    private Image createImage(Member owner, Trip trip, Post post, String fileName) {
+    private Image toEntity(Member owner, Trip trip, Post post, String fileName) {
         return imageRepository.save(new Image(
             owner,
             trip,
