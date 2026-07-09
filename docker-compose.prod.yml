@@ -1,8 +1,20 @@
 services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
   frontend:
     image: ghcr.io/prgrms-be-devcourse/nbe10-12-2-team04-frontend:latest
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file:
       - ./front/.env.local
     depends_on:
@@ -11,8 +23,8 @@ services:
 
   backend:
     image: ghcr.io/prgrms-be-devcourse/nbe10-12-2-team04-backend:latest
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     env_file:
       - ./back/.env
     environment:
@@ -56,3 +68,5 @@ volumes:
   mysql-data:
   backend-images:
   backend-logs:
+  caddy_data:
+  caddy_config:
