@@ -73,12 +73,10 @@ public class ImageServiceUseCaseTest {
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
         registry.add("custom.upload.path", () -> tempDir.toString());
-        registry.add("custom.upload.serving-path", () -> "serving");
-        registry.add("custom.upload.thumbnail-path", () -> "thumbnail");
-        registry.add("custom.upload.profile-path", () -> "profile");
-        registry.add("custom.upload.serving-url", () -> "/serving");
-        registry.add("custom.upload.thumbnail-url", () -> "/thumbnail");
-        registry.add("custom.upload.profile-url", () -> "/profile");
+        registry.add("custom.upload.serving-path", () -> "/images/serving");
+        registry.add("custom.upload.thumbnail-path", () -> "/images/thumbnail");
+        registry.add("custom.upload.profile-path", () -> "/images/profile");
+        registry.add("custom.upload.public-prefix", () -> "/");
     }
 
     @BeforeEach
@@ -159,8 +157,8 @@ public class ImageServiceUseCaseTest {
 
         ImageServiceResponse imageServiceResponse = imageService.findById(res.getFirst().id());
         assertThat(imageServiceResponse).isNotNull();
-        assertThat(imageServiceResponse.originalFileUrl()).startsWith("/serving/");
-        assertThat(imageServiceResponse.thumbnailUrl()).startsWith("/thumbnail/");
+        assertThat(imageServiceResponse.originalFileUrl()).startsWith("/images/serving/");
+        assertThat(imageServiceResponse.thumbnailUrl()).startsWith("/images/thumbnail/");
     }
 
     @Test
@@ -188,8 +186,8 @@ public class ImageServiceUseCaseTest {
 
         ImageServiceResponse imageServiceResponse = imageService.findById(res.getFirst().id());
         assertThat(imageServiceResponse).isNotNull();
-        assertThat(imageServiceResponse.originalFileUrl()).startsWith("/serving/");
-        assertThat(imageServiceResponse.thumbnailUrl()).startsWith("/thumbnail/");
+        assertThat(imageServiceResponse.originalFileUrl()).startsWith("/images/serving/");
+        assertThat(imageServiceResponse.thumbnailUrl()).startsWith("/images/thumbnail/");
 
         Image image = imageService.getById(res.getFirst().id());
         assertThat(image).isNotNull();

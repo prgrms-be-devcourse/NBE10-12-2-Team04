@@ -49,12 +49,10 @@ custom:
     jpg: jpeg
   upload:
     path: ${IMAGE_UPLOAD:/images}
-    serving-path: ${SERVING_UPLOAD_PATH:serving}
-    thumbnail-path: ${THUMBNAIL_UPLOAD_PATH:thumbnail}
-    profile-path: ${PROFILE_UPLOAD_PATH:profile}
-    serving-url: ${SERVING_UPLOAD_URL:/images/serving}
-    thumbnail-url: ${THUMBNAIL_UPLOAD_URL:/images/thumbnail}
-    profile-url: ${PROFILE_UPLOAD_URL:/images/profile}
+    serving-path: ${SERVING_UPLOAD_PATH:/images/serving}
+    thumbnail-path: ${THUMBNAIL_UPLOAD_PATH:/images/thumbnail}
+    profile-path: ${PROFILE_UPLOAD_PATH:/images/profile}
+    public-prefix: ${PUBLIC_PREFIX:/}
   thumbnail:
     width: ${THUMBNAIL_WIDTH:1024}
     height: ${THUMBNAIL_HEIGHT:1024}

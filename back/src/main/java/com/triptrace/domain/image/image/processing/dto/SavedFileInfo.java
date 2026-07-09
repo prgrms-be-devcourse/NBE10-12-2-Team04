@@ -1,12 +1,12 @@
-package com.triptrace.domain.image.image.processing;
+package com.triptrace.domain.image.image.processing.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 //수정 못해야함
-public record SavedFileInfo (
+public record SavedFileInfo(
     @NotNull String servingUrl,
     @NotNull String thumbnailUrl,
     Long size,
-    @NotBlank String mimeType){
+    @NotBlank String mimeType) {
 }

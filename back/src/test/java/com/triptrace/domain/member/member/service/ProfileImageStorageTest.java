@@ -1,21 +1,21 @@
 package com.triptrace.domain.member.member.service;
 
-import com.triptrace.domain.image.image.processing.ImageProcessor;
-import com.triptrace.domain.image.image.storage.ImageStorageProperties;
-import com.triptrace.global.exception.ServiceException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.mock.web.MockMultipartFile;
+import static org.assertj.core.api.Assertions.*;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.web.MockMultipartFile;
+
+import com.triptrace.domain.image.image.processing.ImageProcessor;
+import com.triptrace.domain.image.image.storage.ImageStorageProperties;
+import com.triptrace.global.exception.ServiceException;
 
 class ProfileImageStorageTest {
     @TempDir
@@ -29,12 +29,10 @@ class ProfileImageStorageTest {
         ImageStorageProperties properties = new ImageStorageProperties(
             new ImageStorageProperties.Upload(
                 tempDir.toString(),
-                "serving",
-                "thumbnail",
-                "profile",
-                "/serving",
-                "/thumbnail",
-                "/profile"
+                "/images/serving",
+                "/images/thumbnail",
+                "/images/profile",
+                "/"
             ),
             new ImageStorageProperties.Thumbnail(1024, 1024),
             new ImageStorageProperties.Ext("jpeg")
@@ -56,7 +54,7 @@ class ProfileImageStorageTest {
             imageBytes
         ));
 
-        assertThat(url).startsWith("/profile/");
+        assertThat(url).startsWith("/images/profile/");
         assertThat(Files.exists(tempDir.resolve(url.substring(1)))).isTrue();
     }
 

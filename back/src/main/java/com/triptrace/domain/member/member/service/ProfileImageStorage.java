@@ -1,18 +1,19 @@
 package com.triptrace.domain.member.member.service;
 
-import com.triptrace.domain.image.image.processing.ImageProcessor;
-import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
-import com.triptrace.domain.image.image.storage.ImageStorageProperties;
-import com.triptrace.global.exception.ServiceException;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.triptrace.domain.image.image.processing.ImageProcessor;
+import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
+import com.triptrace.domain.image.image.storage.ImageStorageProperties;
+import com.triptrace.global.exception.ServiceException;
 
 @Component
 public class ProfileImageStorage {
@@ -27,10 +28,10 @@ public class ProfileImageStorage {
     private final ImageProcessor imageProcessor;
 
     public ProfileImageStorage(ImageStorageProperties properties, ImageProcessor imageProcessor) {
-        this.profileImagesPath = Path.of(properties.upload().path(), properties.upload().profilePath())
+        this.profileImagesPath = Path.of(properties.upload().path() + properties.upload().profilePath())
             .toAbsolutePath()
             .normalize();
-        this.profileImagesUrlPrefix = properties.upload().profileUrl();
+        this.profileImagesUrlPrefix = properties.upload().profilePath();
         this.imageProcessor = imageProcessor;
     }
 

@@ -1,11 +1,12 @@
 package com.triptrace.global.web;
 
-import com.triptrace.domain.image.image.storage.ImageStorageProperties;
+import java.nio.file.Path;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.nio.file.Path;
+import com.triptrace.domain.image.image.storage.ImageStorageProperties;
 
 @Configuration
 public class StaticResourceConfig implements WebMvcConfigurer {
@@ -25,11 +26,11 @@ public class StaticResourceConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler(upload.servingUrl() + "/**")
+        registry.addResourceHandler(upload.servingPath() + "/**")
             .addResourceLocations(servingImagesPath);
-        registry.addResourceHandler(upload.thumbnailUrl() + "/**")
+        registry.addResourceHandler(upload.thumbnailPath() + "/**")
             .addResourceLocations(thumbnailImagesPath);
-        registry.addResourceHandler(upload.profileUrl() + "/**")
+        registry.addResourceHandler(upload.profilePath() + "/**")
             .addResourceLocations(profileImagesPath);
     }
 
