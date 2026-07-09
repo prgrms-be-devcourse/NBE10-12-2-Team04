@@ -1,14 +1,8 @@
 package com.triptrace.domain.image.image.storage;
 
-import com.triptrace.domain.image.image.processing.ExifOrientation;
-import com.triptrace.domain.image.image.processing.SavedFileInfo;
-import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,8 +10,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import javax.imageio.ImageIO;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.triptrace.domain.image.image.processing.ExifOrientation;
+import com.triptrace.domain.image.image.processing.dto.SavedFileInfo;
+import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
 
 public class ImageFileStorageTest {
 
@@ -34,12 +36,10 @@ public class ImageFileStorageTest {
         ImageStorageProperties properties = new ImageStorageProperties(
             new ImageStorageProperties.Upload(
                 tempDir.toString(),
-                "serving",
-                "thumbnail",
-                "profile",
-                "/serving",
-                "/thumbnail",
-                "/profile"
+                "/images/serving",
+                "/images/thumbnail",
+                "/images/profile",
+                "/"
             ),
             new ImageStorageProperties.Thumbnail(1024, 1024),
             new ImageStorageProperties.Ext("jpeg")
@@ -57,8 +57,8 @@ public class ImageFileStorageTest {
         SavedFileInfo savedFileInfo = imageFileStorage.saveImageWithThumbnail(imageBytes, ExifOrientation.NORMAL);
 
         assertThat(savedFileInfo).isNotNull();
-        assertThat(savedFileInfo.servingUrl()).startsWith("/serving/");
-        assertThat(savedFileInfo.thumbnailUrl()).startsWith("/thumbnail/");
+        assertThat(savedFileInfo.servingUrl()).startsWith("/images/serving/");
+        assertThat(savedFileInfo.thumbnailUrl()).startsWith("/images/thumbnail/");
         assertThat(savedFileInfo.size()).isGreaterThan(0);
     }
 
@@ -100,7 +100,7 @@ public class ImageFileStorageTest {
     void test05() {
         String url = imageFileStorage.saveProfileImage(imageBytes);
 
-        assertThat(url).startsWith("/profile/");
+        assertThat(url).startsWith("/images/profile/");
         assertThat(Files.exists(diskPath(url))).isTrue();
     }
 

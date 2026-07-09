@@ -1,5 +1,13 @@
 package com.triptrace.domain.image.image.application;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.triptrace.domain.image.image.catalog.ImageExceptionCatalog;
 import com.triptrace.domain.image.image.dto.response.ImageServiceResponse;
 import com.triptrace.domain.image.image.dto.response.ImageUploadResponse;
@@ -7,27 +15,21 @@ import com.triptrace.domain.image.image.entity.Image;
 import com.triptrace.domain.image.image.mapper.ImageMapper;
 import com.triptrace.domain.image.image.processing.ImageInfo;
 import com.triptrace.domain.image.image.processing.ImageMetadataExtractor;
-import com.triptrace.domain.image.image.processing.SavedFileInfo;
+import com.triptrace.domain.image.image.processing.dto.SavedFileInfo;
 import com.triptrace.domain.image.image.processing.exception.ImageProcessException;
+import com.triptrace.domain.image.image.service.ImageService;
 import com.triptrace.domain.image.image.storage.ImageFileStorage;
 import com.triptrace.domain.image.image.storage.StoredImageFile;
-import com.triptrace.domain.image.image.service.ImageService;
 import com.triptrace.domain.member.member.entity.Member;
 import com.triptrace.domain.member.member.service.MemberService;
 import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.post.post.service.PostService;
 import com.triptrace.domain.trip.trip.entity.Trip;
 import com.triptrace.domain.trip.trip.service.TripService;
+
 import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -87,8 +89,8 @@ public class ImageUploadUseCase {
     }
 
     public List<ImageUploadResponse> uploadImages(Long ownerId,
-                                                  Long tripId,
-                                                  @NotEmpty MultipartFile[] images) {
+        Long tripId,
+        @NotEmpty MultipartFile[] images) {
         // 다중 업로드는 파일별 부분 성공을 API 계약으로 유지한다.
         validateImagesRequest(images);
         Member owner = memberService.findById(ownerId);
@@ -99,10 +101,11 @@ public class ImageUploadUseCase {
         }
         return list;
     }
+
     public List<ImageUploadResponse> uploadImages(Long ownerId,
-                                                  Long tripId,
-                                                  Long postId,
-                                                  @NotEmpty MultipartFile[] images) {
+        Long tripId,
+        Long postId,
+        @NotEmpty MultipartFile[] images) {
         // 다중 업로드는 파일별 부분 성공을 API 계약으로 유지한다.
         validateImagesRequest(images);
         List<ImageUploadResponse> list = new ArrayList<>();

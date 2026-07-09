@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class ImageMetadataExtractor {
-    //TODO: ERROR CODE ENUM 타입으로 변경
     //ERROR CODE, 영역으로 구분
     private static final String FILE_EXTRACT_ERROR = "400-1";
 
