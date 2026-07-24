@@ -3,6 +3,7 @@ package com.triptrace.domain.image.image.mapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import com.triptrace.domain.image.image.dto.response.ImageResponse;
 import com.triptrace.domain.image.image.dto.response.ImageServiceResponse;
 import com.triptrace.domain.image.image.dto.response.ImageUploadResponse;
 import com.triptrace.domain.image.image.entity.Image;
@@ -15,7 +16,7 @@ import com.triptrace.domain.post.post.entity.Post;
 import com.triptrace.domain.trip.trip.entity.Trip;
 
 public class ImageMapper {
-    private static final int PUBLIC_GPS_SCALE = 4;
+    private static final int PUBLIC_GPS_SCALE = 7;
 
     public static Image toEntity(Member owner, Trip trip, ImageInfo imageInfo, StoredImageFile storedImageFile) {
         return toEntity(
@@ -123,4 +124,13 @@ public class ImageMapper {
         }
         return value.setScale(PUBLIC_GPS_SCALE, RoundingMode.FLOOR);
     }
+
+	public static ImageResponse toImageResponse(ImageServiceResponse imageServiceResponse) {
+        return new ImageResponse(imageServiceResponse.id(),
+            imageServiceResponse.ownerId(),
+            imageServiceResponse.tripId(),
+            imageServiceResponse.postId(),
+            imageServiceResponse.originalFileUrl(),
+            imageServiceResponse.thumbnailUrl());
+	}
 }

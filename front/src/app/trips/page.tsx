@@ -234,12 +234,12 @@ function Step2Images({
         <p className="text-sm font-bold text-gray-900">이미지를 업로드하여 기록을 생성하세요.</p>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row">
         {/* 업로드 영역 */}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex-1 border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-green-400 hover:bg-green-50 transition-colors min-h-[160px]"
+          className="flex min-h-[150px] flex-1 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 p-5 transition-colors hover:border-green-400 hover:bg-green-50 sm:min-h-[160px] sm:p-6"
         >
           <Upload size={28} className="text-gray-400" />
           <p className="text-sm text-gray-500 font-medium">이미지를 드래그하거나</p>
@@ -249,7 +249,7 @@ function Step2Images({
         <input ref={inputRef} type="file" multiple accept="image/jpeg,image/jpg" className="hidden" onChange={handleAdd} />
 
         {/* 업로드된 파일 목록 */}
-        <div className="flex-1 flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+        <div className="flex max-h-[220px] flex-1 flex-col gap-2 overflow-y-auto sm:max-h-[200px]">
           {files.length === 0 ? (
             <p className="text-xs text-gray-400 text-center mt-8">업로드된 이미지가 없습니다</p>
           ) : (
@@ -311,7 +311,7 @@ function Step3AutoRecord({ result }: { result: AutoRecordResult | null }) {
     <div className="flex flex-col gap-4">
       <div className="bg-gray-50 rounded-xl p-4 text-sm">
         <p className="font-semibold text-gray-700 mb-3">자동 기록 생성 결과</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             { label: '생성된 기록', value: generatedPostCount, icon: FileText },
             { label: '생성된 마커', value: generatedMarkerCount, icon: CheckCircle },
@@ -481,10 +481,10 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[680px] max-h-[90vh] overflow-y-auto mx-4">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      <div className="max-h-[calc(100dvh_-_16px)] w-full overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:mx-4 sm:max-h-[90vh] sm:max-w-[680px] sm:rounded-2xl">
         {/* 모달 헤더 */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
           <h2 className="text-lg font-bold text-gray-900">새 Trip 만들기</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={20} />
@@ -492,7 +492,8 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 스텝 표시 */}
-        <div className="flex items-center gap-0 px-6 pt-5 pb-4">
+        <div className="overflow-x-auto px-4 pb-4 pt-5 sm:px-6">
+        <div className="flex min-w-max items-center gap-0">
           {stepLabels.map((label, i) => {
             const s = (i + 1) as 1 | 2 | 3;
             const isDone = step > s;
@@ -515,9 +516,10 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
             );
           })}
         </div>
+        </div>
 
         {/* 스텝 콘텐츠 */}
-        <div className="px-6 pb-4">
+        <div className="px-4 pb-4 sm:px-6">
           {step === 1 && <Step1Basic data={basicInfo} onChange={setBasicInfo} formRef={basicFormRef} />}
           {step === 2 && createdTripId && createdOwnerId && (
             <Step2Images tripId={createdTripId} ownerId={createdOwnerId} files={uploadedFiles} onChange={setUploadedFiles} />
@@ -528,7 +530,7 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 푸터 버튼 */}
-        <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           {step === 1 ? (
             <button onClick={handleManualStart} disabled={loading} className="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-60">
               수동으로 시작
@@ -543,17 +545,17 @@ function CreateTripModal({ onClose }: { onClose: () => void }) {
           )}
 
           {step === 1 && (
-            <button onClick={handleStep1Next} disabled={loading} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            <button onClick={handleStep1Next} disabled={loading} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60">
               {loading ? '생성 중...' : 'Trip 생성 후 이미지 업로드'}
             </button>
           )}
           {step === 2 && (
-            <button onClick={handleStep2Next} disabled={loading || !uploadedFiles.some((file) => file.status === 'done')} className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            <button onClick={handleStep2Next} disabled={loading || !uploadedFiles.some((file) => file.status === 'done')} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60">
               {loading ? '생성 중...' : '자동 기록 생성하기'}
             </button>
           )}
           {step === 3 && (
-            <button onClick={handleFinish} className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
+            <button onClick={handleFinish} className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
               수정/편집 화면으로 이동
             </button>
           )}
@@ -603,8 +605,8 @@ function getTripMapPositions(trips: Trip[]) {
 
 function TripsFallbackMapView({ trips }: { trips: Trip[] }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="relative h-[360px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 via-sky-50 to-green-50">
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+      <div className="relative h-[300px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 via-sky-50 to-green-50 sm:h-[360px]">
         <div className="absolute inset-0 opacity-70 bg-[linear-gradient(25deg,transparent_0_28%,rgba(255,255,255,0.65)_28%_30%,transparent_30%_100%),linear-gradient(145deg,transparent_0_48%,rgba(255,255,255,0.75)_48%_50%,transparent_50%_100%)]" />
         {trips.map((trip, index) => {
           const top = 24 + (index % 4) * 16;
@@ -662,8 +664,8 @@ function TripsMapView({ trips }: { trips: Trip[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="relative h-[420px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 via-sky-50 to-green-50">
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+      <div className="relative h-[320px] overflow-hidden rounded-xl bg-gradient-to-br from-blue-100 via-sky-50 to-green-50 sm:h-[420px]">
         {!isLoaded ? (
           <div className="flex h-full w-full items-center justify-center">
             <p className="text-xs text-gray-400">지도를 불러오는 중...</p>
@@ -789,7 +791,7 @@ function TripsPageContent() {
 
   if (mounted && (!isAuthenticated() || authRequired)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-gray-500">로그인이 필요합니다.</p>
         <button
           onClick={() => router.push('/auth/login')}
@@ -802,15 +804,15 @@ function TripsPageContent() {
   }
 
   return (
-    <div className="mx-auto max-w-[1040px] p-8">
-      <div className="flex items-center justify-between mb-2">
+    <div className="mx-auto max-w-[1040px] px-4 py-5 sm:p-8">
+      <div className="mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">내 Trip</h1>
           <p className="text-sm text-gray-400 mt-0.5">내가 다녀온 여행을 기록하고 관리하세요.</p>
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 sm:w-auto"
         >
           <Plus size={16} /> 새 Trip 만들기
         </button>
@@ -839,13 +841,13 @@ function TripsPageContent() {
         </div>
       )}
 
-      <div className={`${viewMode === 'list' ? 'mt-5 grid' : 'mt-5 hidden'} grid-cols-2 gap-5`}>
+      <div className={`${viewMode === 'list' ? 'mt-5 grid' : 'mt-5 hidden'} grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5`}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-[260px] rounded-2xl bg-gray-200 animate-pulse" />
           ))
         ) : trips.length === 0 ? (
-          <div className="col-span-2 flex flex-col items-center justify-center py-20 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400 sm:col-span-2">
             <p className="text-lg font-semibold mb-2">아직 Trip이 없어요</p>
             <p className="text-sm">+ 새 Trip 만들기를 눌러 첫 여행을 기록해보세요!</p>
           </div>

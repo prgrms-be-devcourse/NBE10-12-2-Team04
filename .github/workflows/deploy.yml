@@ -59,7 +59,7 @@ jobs:
             ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -70,14 +70,76 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # compose만 copy
-      - name: Copy docker-compose.prod.yml to VM
+      - name: Create production env file
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
+            echo "MYSQL_DATABASE=${MYSQL_DATABASE}"
+            echo "MYSQL_USER=${MYSQL_USER}"
+            echo "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+            echo "SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}"
+            echo "JWT_SECRET_KEY=${JWT_SECRET_KEY}"
+            echo "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}"
+            echo "LOG_DIR=${LOG_DIR}"
+            echo "IMAGE_UPLOAD=${IMAGE_UPLOAD}"
+            echo "SERVING_UPLOAD_PATH=${SERVING_UPLOAD_PATH}"
+            echo "THUMBNAIL_UPLOAD_PATH=${THUMBNAIL_UPLOAD_PATH}"
+            echo "PROFILE_UPLOAD_PATH=${PROFILE_UPLOAD_PATH}"
+            echo "PUBLIC_PREFIX=${PUBLIC_PREFIX}"
+            echo "IMAGE_FILE_SIZE=${IMAGE_FILE_SIZE}"
+            echo "MAX_IMAGE_FILES_SIZE=${MAX_IMAGE_FILES_SIZE}"
+            echo "ACCESS_TOKEN_EXPIRATION_SECONDS=${ACCESS_TOKEN_EXPIRATION_SECONDS}"
+            echo "REFRESH_TOKEN_EXPIRATION_SECONDS=${REFRESH_TOKEN_EXPIRATION_SECONDS}"
+            echo "THUMBNAIL_WIDTH=${THUMBNAIL_WIDTH}"
+            echo "THUMBNAIL_HEIGHT=${THUMBNAIL_HEIGHT}"
+            echo "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}"
+            echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}"
+            echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
+            echo "SITE_ADDR=${SITE_ADDR}"
+          } > .env.prod
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+          LOG_DIR: ${{ vars.LOG_DIR }}
+          IMAGE_UPLOAD: ${{ vars.IMAGE_UPLOAD }}
+          SERVING_UPLOAD_PATH: ${{ vars.SERVING_UPLOAD_PATH }}
+          THUMBNAIL_UPLOAD_PATH: ${{ vars.THUMBNAIL_UPLOAD_PATH }}
+          PROFILE_UPLOAD_PATH: ${{ vars.PROFILE_UPLOAD_PATH }}
+          PUBLIC_PREFIX: ${{ vars.PUBLIC_PREFIX }}
+          IMAGE_FILE_SIZE: ${{ vars.IMAGE_FILE_SIZE }}
+          MAX_IMAGE_FILES_SIZE: ${{ vars.MAX_IMAGE_FILES_SIZE }}
+          ACCESS_TOKEN_EXPIRATION_SECONDS: ${{ vars.ACCESS_TOKEN_EXPIRATION_SECONDS }}
+          REFRESH_TOKEN_EXPIRATION_SECONDS: ${{ vars.REFRESH_TOKEN_EXPIRATION_SECONDS }}
+          THUMBNAIL_WIDTH: ${{ vars.THUMBNAIL_WIDTH }}
+          THUMBNAIL_HEIGHT: ${{ vars.THUMBNAIL_HEIGHT }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          SITE_ADDR: ${{ vars.SITE_ADDR }}
+
+      - name: Prepare deploy directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            mkdir -p ~/NBE10-12-2-Team04
+
+      - name: Copy deploy files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
-          source: "docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,Caddyfile,.env.prod"
           target: "~/NBE10-12-2-Team04"
 
       - name: Pull and restart containers
@@ -88,5 +150,6 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ~/NBE10-12-2-Team04
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            chmod 600 .env.prod
+            docker compose --env-file .env.prod -f docker-compose.prod.yml pull
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d

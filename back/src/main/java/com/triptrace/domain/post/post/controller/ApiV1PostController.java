@@ -44,6 +44,16 @@ public class ApiV1PostController {
             postService.findPostsByTripId(tripId, memberId)
         );
     }
+    @GetMapping("/posts")
+    public RsData<List<PostResponse>> getPosts(
+        @AuthenticationPrincipal Long memberId
+    ) {
+        return new RsData<>(
+            "200-1",
+            "게시물 목록 조회에 성공했습니다.",
+            postService.getPosts(memberId)
+        );
+    }
 
     @GetMapping("/posts/{postId}")
     public RsData<PostResponse> getPost(

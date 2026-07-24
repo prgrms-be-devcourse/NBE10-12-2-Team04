@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -74,6 +75,26 @@ class TripAutoRecordServiceTest {
         assertThat(trip.getCity()).isEqualTo("부산광역시");
         assertThat(trip.getStartDate()).isEqualTo(LocalDateTime.of(2026, 6, 27, 19, 37, 55));
         assertThat(trip.getEndDate()).isEqualTo(LocalDateTime.of(2026, 6, 30, 10, 15));
+    }
+
+    @Test
+    @DisplayName("자동 생성 마커 중심 좌표는 소수점 7자리까지 버림 처리한다")
+    void truncateCoordinateToSevenDecimalPlaces() {
+        TripAutoRecordService tripAutoRecordService = new TripAutoRecordService(
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        BigDecimal coordinate = ReflectionTestUtils.invokeMethod(
+            tripAutoRecordService,
+            "truncateCoordinate",
+            new BigDecimal("37.123456789")
+        );
+
+        assertThat(coordinate).isEqualByComparingTo(new BigDecimal("37.1234567"));
     }
 
     private Image imageCapturedAt(LocalDateTime capturedAt) {

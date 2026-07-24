@@ -13,21 +13,34 @@ services:
     depends_on:
       - frontend
       - backend
+
   frontend:
-    image: ghcr.io/prgrms-be-devcourse/nbe10-12-2-team04-frontend:latest
-    expose:
-      - "3000"
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    image: triptrace-frontend:local
+    ports:
+      - "3000:3000"
     environment:
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
-    restart: always
+    restart: unless-stopped
 
   backend:
-    image: ghcr.io/prgrms-be-devcourse/nbe10-12-2-team04-backend:latest
-    expose:
-      - "8080"
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+      args:
+        LOG_DIR: ${LOG_DIR}
+        IMAGE_UPLOAD: ${IMAGE_UPLOAD}
+    image: triptrace-backend:local
+    ports:
+      - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod,image-processor
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
@@ -52,29 +65,31 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - backend-images:${IMAGE_UPLOAD}
-      - backend-logs:${LOG_DIR}
-    restart: always
+      - backend-images-local:${IMAGE_UPLOAD}
+      - backend-logs-local:${LOG_DIR}
+    restart: unless-stopped
 
   db:
     image: mysql:8.4
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql-data-local:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 5s
       retries: 10
-    restart: always
+    restart: unless-stopped
 
 volumes:
-  mysql-data:
-  backend-images:
-  backend-logs:
+  mysql-data-local:
+  backend-images-local:
+  backend-logs-local:
   caddy_data:
   caddy_config:

@@ -16,8 +16,10 @@ import {
   MapPin,
   Plus,
 } from 'lucide-react';
-import { feedApi, isAuthenticated, likeApi } from '@/lib/api';
-import type { Trip } from '@/types';
+import { feedApi, isAuthenticated, likeApi, postApi, userApi } from '@/lib/api';
+import type { AlbumPost, Trip } from '@/types';
+
+type HomeTrayTab = 'mine' | 'popular' | 'recent';
 
 const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const GOOGLE_MAPS_SCRIPT_ID = 'triptrace-google-map-script';
@@ -66,6 +68,22 @@ const fallbackCoords: Record<string, { lat: number; lng: number }> = {
 
 function uniqueTrips(trips: Trip[]) {
   return Array.from(new Map(trips.map((trip) => [trip.id, trip])).values());
+}
+
+function formatDashboardDate(value?: string) {
+  if (!value) return '';
+  return value.slice(0, 10).replaceAll('-', '.');
+}
+
+function getAlbumPostCover(post: AlbumPost) {
+  return post.marker?.representativeImageUrl || post.images[0]?.thumbnailUrl || post.images[0]?.url || '';
+}
+
+function getTripRange(trip: Trip) {
+  const start = formatDashboardDate(trip.startDate);
+  const end = formatDashboardDate(trip.endDate);
+  if (!start) return '';
+  return end && end !== start ? `${start} - ${end}` : start;
 }
 
 function isCurrentMonthTrip(trip: Trip) {
@@ -687,11 +705,11 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
   };
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-base font-bold text-gray-900 sm:text-lg">
           <Heart size={20} className="fill-emerald-500 text-emerald-500" /> 월간 인기 여행 Top 10
-          <Camera size={18} className="text-emerald-500" />
+          <Camera size={18} className="hidden text-emerald-500 sm:block" />
         </h2>
         <div className="flex gap-2">
           <button onClick={() => scroll(-1)} className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50">
@@ -709,7 +727,7 @@ function TopLikedCarousel({ trips }: { trips: Trip[] }) {
       ) : (
         <div ref={scrollRef} className="flex gap-5 overflow-x-auto pb-1 [scrollbar-width:none]">
           {items.map((trip, index) => (
-            <Link key={trip.id} href={`/trips/${trip.id}`} className="group relative h-[168px] w-[250px] shrink-0 overflow-hidden rounded-lg shadow-sm">
+            <Link key={trip.id} href={`/trips/${trip.id}`} className="group relative h-[156px] w-[220px] shrink-0 overflow-hidden rounded-lg shadow-sm sm:h-[168px] sm:w-[250px]">
               <TripVisual trip={trip} index={index} showMeta={false} className="h-full w-full transition-transform group-hover:scale-105" />
               <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-sm font-bold text-gray-800">월간 {index + 1}위</span>
               <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-3 pt-10 text-white">
@@ -745,14 +763,14 @@ function RecentTripsList({
   const visible = trips;
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-gray-900 sm:text-lg">
         <Clock3 size={21} className="text-emerald-500" /> 최신 여행기
       </h2>
       <div className="divide-y divide-gray-100">
         {visible.map((trip, index) => (
-          <div key={trip.id} className="flex items-center gap-5 py-4 first:pt-0">
-            <Link href={trip.id.startsWith('recent') ? '#' : `/trips/${trip.id}`} className="block h-[92px] w-[220px] shrink-0 overflow-hidden rounded-lg">
+          <div key={trip.id} className="flex items-start gap-3 py-4 first:pt-0 sm:items-center sm:gap-5">
+            <Link href={trip.id.startsWith('recent') ? '#' : `/trips/${trip.id}`} className="block h-[84px] w-[104px] shrink-0 overflow-hidden rounded-lg sm:h-[92px] sm:w-[220px]">
               <TripVisual trip={trip} index={index} className="h-full w-full" />
             </Link>
             <div className="min-w-0 flex-1">
@@ -760,14 +778,14 @@ function RecentTripsList({
                 {trip.title}
               </Link>
               <p className="mt-1 line-clamp-1 text-sm text-gray-500">{trip.city}의 숨겨진 명소와 맛집, 일정까지 자세히 정리했습니다.</p>
-              <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-400 sm:gap-3">
                 <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white">T</span>
                 <span className="font-medium text-gray-600">{trip.author?.nickname ?? 'Traveler'}</span>
                 <span>|</span>
                 <span>{trip.startDate}</span>
               </div>
             </div>
-            <button onClick={() => onLike(trip)} className="flex items-center gap-2 px-3 text-gray-500 hover:text-red-500">
+            <button onClick={() => onLike(trip)} className="flex shrink-0 items-center gap-1 px-1 text-gray-500 hover:text-red-500 sm:gap-2 sm:px-3">
               <Heart size={22} className={trip.liked ? 'fill-red-500 text-red-500' : ''} />
               <span className="text-sm font-medium">{trip.likeCount ?? 0}</span>
             </button>
@@ -783,18 +801,164 @@ function RecentTripsList({
   );
 }
 
+function HomeDashboard({
+  posts,
+  trips,
+  loading,
+}: {
+  posts: AlbumPost[];
+  trips: Trip[];
+  loading: boolean;
+}) {
+  const recentPosts = posts.slice(0, 4);
+  const recentTrips = trips.slice(0, 3);
+  const photoCount = posts.reduce((sum, post) => sum + post.images.length, 0);
+  const lastPost = posts[0];
+  const lastPlace = posts.find((post) => post.marker?.placeName)?.marker?.placeName;
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">My TripTrace</p>
+          <h1 className="mt-1 text-2xl font-bold text-gray-900">최근 여행 기록</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            {loading ? '내 기록을 불러오는 중입니다.' : lastPost ? `${formatDashboardDate(lastPost.date)}에 남긴 기록을 이어서 확인하세요.` : 'Trip을 만들고 사진 기록을 남겨보세요.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/photos" className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">
+            앨범 보기
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: 'Trips', value: trips.length, icon: MapPin },
+          { label: 'Posts', value: posts.length, icon: Clock3 },
+          { label: 'Photos', value: photoCount, icon: Camera },
+          { label: '최근 위치', value: lastPlace || '-', icon: MapPin },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+              <Icon size={14} />
+              {label}
+            </div>
+            <p className="mt-2 truncate text-lg font-bold text-gray-900">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(260px,0.7fr)]">
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-900">최근 Post</h2>
+            <Link href="/photos" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">전체 보기</Link>
+          </div>
+          {recentPosts.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-400">
+              아직 작성한 Post가 없습니다.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {recentPosts.map((post) => {
+                const cover = getAlbumPostCover(post);
+                return (
+                  <Link key={post.id} href="/photos" className="group flex gap-3 rounded-lg border border-gray-100 p-2 hover:border-emerald-200 hover:bg-emerald-50/30">
+                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-gray-100 sm:w-24">
+                      {cover ? (
+                        <img src={cover} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center">
+                          <Camera size={18} className="text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 py-1">
+                      <p className="line-clamp-1 text-sm font-bold text-gray-900">{post.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">{post.content || post.marker?.placeName || '메모가 없습니다.'}</p>
+                      <p className="mt-1 text-[11px] text-gray-400">{formatDashboardDate(post.date)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-900">최근 Trip</h2>
+            <Link href="/trips" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">관리</Link>
+          </div>
+          <div className="space-y-2">
+            {recentTrips.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400">
+                아직 Trip이 없습니다.
+              </div>
+            ) : recentTrips.map((trip) => (
+              <Link key={trip.id} href={`/trips/${trip.id}`} className="flex items-center gap-3 rounded-lg border border-gray-100 p-2 hover:border-emerald-200 hover:bg-emerald-50/30">
+                <TripVisual trip={trip} index={0} showMeta={false} className="h-14 w-16 flex-shrink-0 rounded-md" />
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-1 text-sm font-bold text-gray-900">{trip.title}</p>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">{[trip.city, trip.country].filter(Boolean).join(', ') || '위치 정보 없음'}</p>
+                  <p className="mt-0.5 text-[11px] text-gray-400">{getTripRange(trip)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
+  const minSheetHeight = 150;
+  const trayHeaderHeight = 92;
   const [topLiked, setTopLiked] = useState<Trip[]>([]);
   const [recent, setRecent] = useState<Trip[]>([]);
   const [recentPage, setRecentPage] = useState(0);
   const [recentHasMore, setRecentHasMore] = useState(true);
   const [recentLoadingMore, setRecentLoadingMore] = useState(false);
+  const [myPosts, setMyPosts] = useState<AlbumPost[]>([]);
+  const [myTrips, setMyTrips] = useState<Trip[]>([]);
+  const [myDashboardLoading, setMyDashboardLoading] = useState(true);
+  const [activeTrayTab, setActiveTrayTab] = useState<HomeTrayTab>('mine');
   const [sheetHeight, setSheetHeight] = useState(430);
   const dragRef = useRef<{ y: number; height: number } | null>(null);
   const sheetScrollRef = useRef<HTMLDivElement | null>(null);
   const recentSentinelRef = useRef<HTMLDivElement | null>(null);
   const mapTrips = useMemo(() => uniqueTrips([...recent, ...topLiked]), [recent, topLiked]);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousHtmlHeight = html.style.height;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyHeight = body.style.height;
+    const previousBodyPosition = body.style.position;
+    const previousBodyWidth = body.style.width;
+
+    html.style.overflow = 'hidden';
+    html.style.height = '100dvh';
+    body.style.overflow = 'hidden';
+    body.style.height = '100dvh';
+    body.style.position = 'fixed';
+    body.style.width = '100%';
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      html.style.height = previousHtmlHeight;
+      body.style.overflow = previousBodyOverflow;
+      body.style.height = previousBodyHeight;
+      body.style.position = previousBodyPosition;
+      body.style.width = previousBodyWidth;
+    };
+  }, []);
 
   const attachLikedStatus = useCallback(async (trips: Trip[]) => {
     if (!isAuthenticated()) return trips.map((trip) => ({ ...trip, liked: false }));
@@ -858,6 +1022,50 @@ export default function HomePage() {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, [loadFeeds]);
+
+  const loadMyDashboard = useCallback(async () => {
+    if (!isAuthenticated()) {
+      setMyPosts([]);
+      setMyTrips([]);
+      setMyDashboardLoading(false);
+      return;
+    }
+
+    setMyDashboardLoading(true);
+    try {
+      const [postResult, tripResult] = await Promise.all([
+        postApi.getAlbumPosts(),
+        userApi.getMyTrips({ page: 0, size: 6 }),
+      ]);
+      setMyPosts((postResult as AlbumPost[]).slice().sort((a, b) => {
+        const left = `${b.date ?? ''} ${b.time ?? ''}`;
+        const right = `${a.date ?? ''} ${a.time ?? ''}`;
+        return left.localeCompare(right);
+      }));
+      setMyTrips(tripResult as Trip[]);
+    } catch {
+      setMyPosts([]);
+      setMyTrips([]);
+    } finally {
+      setMyDashboardLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void loadMyDashboard();
+    }, 0);
+
+    const handlePageShow = () => {
+      void loadMyDashboard();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [loadMyDashboard]);
 
   const handleLike = async (trip: Trip) => {
     if (trip.id.startsWith('recent')) return;
@@ -925,7 +1133,7 @@ export default function HomePage() {
   useEffect(() => {
     const root = sheetScrollRef.current;
     const target = recentSentinelRef.current;
-    if (!root || !target || !recentHasMore) return;
+    if (activeTrayTab !== 'recent' || !root || !target || !recentHasMore) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -938,7 +1146,7 @@ export default function HomePage() {
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [loadMoreRecent, recentHasMore, recent.length]);
+  }, [activeTrayTab, loadMoreRecent, recentHasMore, recent.length]);
 
   const startSheetDrag = (event: React.MouseEvent<HTMLDivElement>) => {
     dragRef.current = { y: event.clientY, height: sheetHeight };
@@ -946,10 +1154,16 @@ export default function HomePage() {
     window.addEventListener('mouseup', endSheetDrag);
   };
 
+  const startSheetTouch = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    dragRef.current = { y: touch.clientY, height: sheetHeight };
+  };
+
   const moveSheetDrag = (event: MouseEvent) => {
     if (!dragRef.current) return;
     const next = dragRef.current.height + dragRef.current.y - event.clientY;
-    setSheetHeight(Math.max(260, Math.min(window.innerHeight - 110, next)));
+    setSheetHeight(Math.max(minSheetHeight, Math.min(window.innerHeight - 110, next)));
   };
 
   const endSheetDrag = () => {
@@ -958,8 +1172,16 @@ export default function HomePage() {
     window.removeEventListener('mouseup', endSheetDrag);
   };
 
+  const moveSheetTouch = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const next = dragRef.current.height + dragRef.current.y - touch.clientY;
+    setSheetHeight(Math.max(minSheetHeight, Math.min(window.innerHeight - 96, next)));
+  };
+
   return (
-    <div className="relative h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
+    <div className="fixed inset-x-0 bottom-[calc(72px_+_env(safe-area-inset-bottom))] top-[56px] overflow-hidden bg-gray-50 md:bottom-0 md:top-16">
       <div className="absolute inset-0 z-0">
         <MapBand trips={mapTrips} fillHeight bottomInset={sheetHeight} />
       </div>
@@ -967,28 +1189,65 @@ export default function HomePage() {
         className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden rounded-t-2xl bg-gray-50 shadow-2xl"
         style={{ height: sheetHeight }}
       >
-        <div onMouseDown={startSheetDrag} className="flex cursor-grab justify-center px-8 py-3 active:cursor-grabbing">
+        <div
+          onMouseDown={startSheetDrag}
+          onTouchStart={startSheetTouch}
+          onTouchMove={moveSheetTouch}
+          onTouchEnd={endSheetDrag}
+          className="flex cursor-grab touch-none justify-center px-8 py-3 active:cursor-grabbing"
+        >
           <span className="h-1.5 w-12 rounded-full bg-gray-300" />
         </div>
-      <div
-        ref={sheetScrollRef}
-        className="mx-auto flex max-w-[1180px] flex-col gap-5 overflow-y-auto px-8 pb-10"
-        style={{ height: sheetHeight - 38 }}
-      >
-        <div className="flex justify-end">
-          <button onClick={handleCreateTrip} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700">
-            <Plus size={18} /> 트립생성
-          </button>
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 md:px-8">
+          <div className="flex items-center justify-between border-b border-gray-200">
+            <div className="flex min-w-0 items-center gap-1">
+              {([
+                ['mine', '내 기록'],
+                ['popular', '인기'],
+                ['recent', '최신'],
+              ] as Array<[HomeTrayTab, string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTrayTab(key)}
+                  className={`min-h-11 px-3 text-sm font-bold transition-colors sm:px-4 ${
+                    activeTrayTab === key
+                      ? 'border-b-2 border-gray-900 text-gray-900'
+                      : 'border-b-2 border-transparent text-gray-400 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={handleCreateTrip} className="hidden items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 sm:flex">
+              <Plus size={16} /> Trip 만들기
+            </button>
+          </div>
         </div>
-        <TopLikedCarousel trips={topLiked} />
-        <RecentTripsList
-          trips={recent}
-          onLike={handleLike}
-          hasMore={recentHasMore}
-          loadingMore={recentLoadingMore}
-          sentinelRef={recentSentinelRef}
-        />
-      </div>
+        <div
+          ref={sheetScrollRef}
+          className="mx-auto flex max-w-[1180px] flex-col gap-5 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 md:px-8 md:pt-5"
+          style={{ height: Math.max(0, sheetHeight - trayHeaderHeight) }}
+        >
+          {activeTrayTab === 'mine' && (
+            <HomeDashboard
+              posts={myPosts}
+              trips={myTrips}
+              loading={myDashboardLoading}
+            />
+          )}
+          {activeTrayTab === 'popular' && <TopLikedCarousel trips={topLiked} />}
+          {activeTrayTab === 'recent' && (
+            <RecentTripsList
+              trips={recent}
+              onLike={handleLike}
+              hasMore={recentHasMore}
+              loadingMore={recentLoadingMore}
+              sentinelRef={recentSentinelRef}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

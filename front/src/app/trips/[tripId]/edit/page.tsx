@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { GoogleMap, Marker as GoogleMarker, useJsApiLoader } from '@react-google-maps/api';
 import {
   Plus, Trash2, Save, Eye, ChevronDown,
-  MapPin, X, Upload, ImageIcon,
+  MapPin, X, Upload, ImageIcon, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { tripApi, postApi, markerApi, placeApi } from '@/lib/api';
 import type { Trip, Post, Marker, TripImage, PlaceCandidate } from '@/types';
@@ -103,6 +103,11 @@ function getTripImagesFromPosts(posts: Post[]) {
   return Array.from(images.values());
 }
 
+function getRepresentativeImageId(images: TripImage[], thumbnailUrl?: string) {
+  if (!thumbnailUrl) return '';
+  return images.find((image) => image.thumbnailUrl === thumbnailUrl || image.url === thumbnailUrl)?.id ?? '';
+}
+
 function toTripImage(image: Post['images'][number], postId?: string): TripImage {
   return {
     id: image.id,
@@ -118,6 +123,107 @@ type ToastState = {
   tone: 'success' | 'error';
 };
 
+function UnassignedImageShelf({
+  images,
+  onAssign,
+  compact = false,
+}: {
+  images: TripImage[];
+  onAssign: (imageId: string) => void;
+  compact?: boolean;
+}) {
+  if (images.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-4 text-center text-xs text-gray-400">
+        배치할 이미지가 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className={`grid gap-2 overflow-y-auto rounded-xl border border-gray-100 bg-white p-2 ${
+      compact ? 'max-h-[calc(100vh_-_260px)] grid-cols-2' : 'max-h-28 grid-flow-col auto-cols-[5rem] overflow-x-auto'
+    }`}>
+      {images.map((image) => (
+        <button
+          key={image.id}
+          type="button"
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData('application/triptrace-image-id', image.id);
+            event.dataTransfer.setData('text/plain', image.id);
+            event.dataTransfer.effectAllowed = 'move';
+          }}
+          onClick={() => onAssign(image.id)}
+          className={`group relative overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-100 transition hover:ring-green-300 ${
+            compact ? 'aspect-square' : 'h-20 w-20'
+          }`}
+          title="클릭하거나 드래그해서 현재 Post에 배치"
+        >
+          <img src={image.thumbnailUrl || image.url} alt="" className="h-full w-full object-cover" />
+          <span className="absolute inset-x-1 bottom-1 rounded bg-black/45 px-1 py-0.5 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+            배치
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function renderInlineMarkdown(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderMarkdownPreview(markdown: string) {
+  const lines = markdown.split('\n');
+  const blocks: React.ReactNode[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    blocks.push(
+      <ul key={`list-${blocks.length}`} className="my-3 list-disc space-y-1 pl-5 text-gray-700">
+        {listItems.map((item, index) => (
+          <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>,
+    );
+    listItems = [];
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      blocks.push(<div key={`space-${index}`} className="h-3" />);
+      return;
+    }
+    if (trimmed.startsWith('- ')) {
+      listItems.push(trimmed.slice(2));
+      return;
+    }
+
+    flushList();
+    if (trimmed.startsWith('### ')) {
+      blocks.push(<h3 key={index} className="mt-5 text-lg font-bold text-gray-900">{renderInlineMarkdown(trimmed.slice(4))}</h3>);
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push(<h2 key={index} className="mt-6 text-xl font-bold text-gray-900">{renderInlineMarkdown(trimmed.slice(3))}</h2>);
+    } else if (trimmed.startsWith('# ')) {
+      blocks.push(<h1 key={index} className="mt-6 text-2xl font-bold text-gray-900">{renderInlineMarkdown(trimmed.slice(2))}</h1>);
+    } else {
+      blocks.push(<p key={index} className="leading-7 text-gray-700">{renderInlineMarkdown(trimmed)}</p>);
+    }
+  });
+
+  flushList();
+  return blocks;
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 컬럼 1: Post 목록
 // ────────────────────────────────────────────────────────────────────
@@ -127,12 +233,14 @@ function PostList({
   onSelect,
   onDelete,
   onCreate,
+  onCollapse,
 }: {
   posts: Post[];
   selectedId: string | null;
   onSelect: (p: Post) => void;
   onDelete: (id: string) => void;
   onCreate: () => void;
+  onCollapse?: () => void;
 }) {
   const groupedPosts = posts.reduce<Array<{ date: string; posts: Post[] }>>((groups, post) => {
     const lastGroup = groups[groups.length - 1];
@@ -148,12 +256,23 @@ function PostList({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1">
-          <span className="w-5 h-5 rounded-full bg-green-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
           Post 목록
         </h3>
-        <button onClick={onCreate} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
-          <Plus size={13} /> 새 Post 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onCreate} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
+            <Plus size={13} /> 새 Post 추가
+          </button>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title="Post 목록 접기"
+            >
+              <PanelLeftClose size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
@@ -203,7 +322,6 @@ function PostList({
                     </div>
                   </div>
                   <div className="flex gap-2 mt-2 pl-16">
-                    <span className="text-xs text-green-600 border border-green-200 rounded px-2 py-0.5">수정</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDelete(post.id); }}
                       className="text-xs text-red-400 border border-red-100 rounded px-2 py-0.5 hover:bg-red-50"
@@ -227,16 +345,24 @@ function PostList({
 function PostEditor({
   tripId,
   post,
+  unassignedImages,
   onChange,
+  onAssignTripImage,
+  onUnassignPostImage,
   onToast,
+  showUnassignedImages = true,
 }: {
   tripId: string;
   post: Post;
+  unassignedImages: TripImage[];
   onChange: (updated: Post) => void;
+  onAssignTripImage: (imageId: string) => void;
+  onUnassignPostImage: (imageId: string) => void;
   onToast: (message: string, tone?: ToastState['tone']) => void;
+  showUnassignedImages?: boolean;
 }) {
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [draggingOver, setDraggingOver] = useState(false);
+  const [contentMode, setContentMode] = useState<'write' | 'preview'>('write');
   const fileRef = useRef<HTMLInputElement>(null);
   const images = post.images ?? [];
   const content = post.content ?? '';
@@ -256,37 +382,7 @@ function PostEditor({
     onChange({ ...post, [key]: value });
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const updated = await postApi.update(tripId, post.id, {
-        title: post.title,
-        content,
-        date: post.date,
-      }) as Post;
-      onChange(withDerivedPostTime(updated));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      onToast('Post가 저장되었습니다.');
-    } catch {
-      onToast('저장에 실패했습니다.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteImage = async (imageId: string) => {
-    try {
-      await postApi.deleteImage(tripId, post.id, imageId);
-      onChange({ ...post, images: images.filter((img) => img.id !== imageId) });
-      onToast('이미지가 삭제되었습니다.');
-    } catch {
-      onToast('이미지 삭제에 실패했습니다.', 'error');
-    }
-  };
-
-  const handleAddImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  const uploadFiles = async (files: File[]) => {
     if (!files.length) return;
     const fd = new FormData();
     files.forEach((f) => fd.append('images', f));
@@ -303,60 +399,103 @@ function PostEditor({
     }
   };
 
+  const handleAddImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await uploadFiles(Array.from(e.target.files ?? []));
+  };
+
+  const handleImageDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDraggingOver(false);
+
+    const files = Array.from(event.dataTransfer.files ?? []).filter((file) => file.type.startsWith('image/'));
+    if (files.length) {
+      await uploadFiles(files);
+      return;
+    }
+
+    const imageId = event.dataTransfer.getData('application/triptrace-image-id') || event.dataTransfer.getData('text/plain');
+    if (imageId) {
+      onAssignTripImage(imageId);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1">
-          <span className="w-5 h-5 rounded-full bg-green-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
-          Post 상세 편집
+          Post 작성
         </h3>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-            saved ? 'bg-green-100 text-green-700' : 'bg-green-600 hover:bg-green-700 text-white'
-          }`}
-        >
-          <Save size={12} /> {saving ? '저장 중...' : saved ? '저장됨' : '저장'}
-        </button>
+        <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-500">편집 중</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">날짜</label>
-          <input
-            type="date"
-            value={post.date}
-            onChange={(e) => set('date', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-green-500"
-          />
-        </div>
+      <div className="flex-1 overflow-y-auto">
+        <article className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-5 md:px-6">
+          <header className="border-b border-gray-100 pb-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+              <input
+                type="date"
+                value={post.date}
+                onChange={(e) => set('date', e.target.value)}
+                className="rounded-md border border-transparent bg-gray-50 px-2 py-1 font-medium text-gray-600 outline-none hover:border-gray-200 focus:border-green-500"
+              />
+              <span>{getPostTimeLabel(post)}</span>
+              <span>·</span>
+              <span className="truncate">{post.marker?.placeName ?? '위치 미정'}</span>
+            </div>
+            <input
+              value={post.title}
+              onChange={(e) => set('title', e.target.value)}
+              placeholder="Post 제목"
+              className="w-full border-0 bg-transparent px-0 text-3xl font-bold leading-tight text-gray-950 outline-none placeholder:text-gray-300 md:text-4xl"
+            />
+          </header>
 
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">제목</label>
-          <input
-            value={post.title}
-            onChange={(e) => set('title', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500"
-          />
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-xs text-gray-500">내용</label>
-            <span className="text-[10px] text-gray-400">{content.length} / 1000</span>
-          </div>
-          <textarea
-            value={content}
-            onChange={(e) => set('content', e.target.value)}
-            maxLength={1000}
-            rows={4}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500 resize-none"
-          />
-        </div>
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex rounded-lg bg-gray-100 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setContentMode('write')}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                    contentMode === 'write' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                  }`}
+                >
+                  작성
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentMode('preview')}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                    contentMode === 'preview' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                  }`}
+                >
+                  미리보기
+                </button>
+              </div>
+              <span className="text-[10px] text-gray-400">{content.length} / 1000</span>
+            </div>
+            {contentMode === 'write' ? (
+              <textarea
+                value={content}
+                onChange={(e) => set('content', e.target.value)}
+                maxLength={1000}
+                rows={12}
+                placeholder="여행의 장면을 적어보세요. # 제목, ## 소제목, - 목록, **강조**를 사용할 수 있습니다."
+                className="min-h-[320px] w-full resize-none rounded-xl border border-gray-100 bg-white px-4 py-4 text-base leading-7 text-gray-800 outline-none placeholder:text-gray-300 focus:border-green-500"
+              />
+            ) : (
+              <div className="min-h-[320px] rounded-xl border border-gray-100 bg-white px-4 py-4">
+                {content.trim() ? (
+                  <div className="prose max-w-none">{renderMarkdownPreview(content)}</div>
+                ) : (
+                  <p className="text-sm text-gray-400">미리보기 할 본문이 없습니다.</p>
+                )}
+              </div>
+            )}
+          </section>
 
         {/* 이미지 */}
-        <div>
+        <section>
           <div className="flex justify-between items-center mb-2">
             <label className="text-xs text-gray-500">연결된 이미지 ({images.length})</label>
             <button
@@ -367,14 +506,36 @@ function PostEditor({
             </button>
             <input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleAddImages} />
           </div>
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDraggingOver(true);
+            }}
+            onDragLeave={() => setDraggingOver(false)}
+            onDrop={handleImageDrop}
+            className={`rounded-xl border border-dashed p-2 transition-colors ${
+              draggingOver ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50/40'
+            }`}
+          >
           <div className="flex h-24 gap-2 overflow-x-auto pb-1">
             {images.map((img) =>
               img.url ? (
                 <div key={img.id} className="relative group h-full flex-shrink-0">
-                  <img src={img.url} alt="" className="h-full w-auto max-w-none object-cover rounded-lg" />
+                  <img
+                    src={img.url}
+                    alt=""
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('application/triptrace-image-id', img.id);
+                      event.dataTransfer.setData('text/plain', img.id);
+                      event.dataTransfer.effectAllowed = 'copyMove';
+                    }}
+                    className="h-full w-auto max-w-none cursor-grab object-cover rounded-lg active:cursor-grabbing"
+                  />
                   <button
-                    onClick={() => handleDeleteImage(img.id)}
+                    onClick={() => onUnassignPostImage(img.id)}
                     className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full hidden group-hover:flex items-center justify-center"
+                    title="Post에서 빼기"
                   >
                     <X size={10} className="text-white" />
                   </button>
@@ -388,10 +549,20 @@ function PostEditor({
               <Upload size={16} className="text-gray-300" />
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-1">
-            이미지 변경/제거 API: PATCH /api/v1/trips/{'{tripId}'}/posts/{'{postId}'}/images
-          </p>
-        </div>
+          <p className="mt-1 text-[10px] text-gray-400">이미지를 끌어오거나 파일을 떨어뜨려 현재 Post에 배치할 수 있습니다.</p>
+          </div>
+        </section>
+
+        {showUnassignedImages && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs text-gray-500">미배치 이미지 ({unassignedImages.length})</label>
+            <span className="text-[10px] text-gray-400">드래그해서 위로 배치</span>
+          </div>
+          <UnassignedImageShelf images={unassignedImages} onAssign={onAssignTripImage} />
+        </section>
+        )}
+        </article>
       </div>
     </div>
   );
@@ -403,14 +574,11 @@ function PostEditor({
 function MarkerEditor({
   post,
   onMarkerUpdated,
-  onToast,
 }: {
   post: Post;
   onMarkerUpdated: (marker: Marker | null) => void;
-  onToast: (message: string, tone?: ToastState['tone']) => void;
 }) {
   const [marker, setMarker] = useState<Marker | null>(post.marker ?? null);
-  const [saving, setSaving] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [candidates, setCandidates] = useState<PlaceCandidate[]>([]);
   const [candidateMode, setCandidateMode] = useState<'nearby' | 'search' | null>(null);
@@ -448,9 +616,7 @@ function MarkerEditor({
     if (!marker) return;
     const nextMarker = { ...marker, [k]: v };
     setMarker(nextMarker);
-    if (nextMarker.id) {
-      onMarkerUpdated(nextMarker);
-    }
+    onMarkerUpdated(nextMarker);
   };
 
   const loadSearchCandidates = async (keyword: string) => {
@@ -529,37 +695,10 @@ function MarkerEditor({
     };
 
     setMarker(nextMarker);
-    if (nextMarker.id) {
-      onMarkerUpdated(nextMarker);
-    }
+    onMarkerUpdated(nextMarker);
     setCandidates([]);
     setCandidateMode(null);
     setCandidatesOpen(false);
-  };
-
-  const handleSave = async () => {
-    if (!marker) return;
-    setSaving(true);
-    try {
-      const markerPayload = {
-        placeName: marker.placeName,
-        lat: marker.lat,
-        lng: marker.lng,
-        visitTime: alignMarkerVisitDate(post, marker.visitTime),
-        source: marker.source ?? (marker.id ? 'AUTO' : 'MANUAL'),
-      };
-      const updatedMarker = marker.id
-        ? await markerApi.update(post.id, marker.id, markerPayload)
-        : await markerApi.create(post.id, markerPayload);
-      const nextMarker = (updatedMarker ?? marker) as Marker;
-      setMarker(nextMarker);
-      onMarkerUpdated(nextMarker);
-      onToast(marker.id ? '마커가 수정되었습니다.' : '마커가 추가되었습니다.');
-    } catch (error) {
-      onToast(error instanceof Error ? error.message : '마커 저장에 실패했습니다.', 'error');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const candidateList = (
@@ -594,7 +733,6 @@ function MarkerEditor({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center px-4 py-3 border-b border-gray-100">
         <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1">
-          <span className="w-5 h-5 rounded-full bg-green-600 text-white text-[10px] flex items-center justify-center font-bold">3</span>
           Marker 편집
         </h3>
       </div>
@@ -711,13 +849,9 @@ function MarkerEditor({
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
-              >
-                {saving ? '저장 중...' : marker.id ? '마커 수정' : '마커 추가'}
-              </button>
+              <span className="flex-1 rounded-lg bg-gray-100 px-3 py-2 text-center text-xs font-medium text-gray-500">
+                {marker.id ? '마커 편집 중' : '새 마커 편집 중'}
+              </span>
             </div>
 
           </>
@@ -768,11 +902,17 @@ export default function TripEditPage() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tripImages, setTripImages] = useState<TripImage[]>([]);
+  const [representativeImageId, setRepresentativeImageId] = useState('');
+  const [savedRepresentativeImageId, setSavedRepresentativeImageId] = useState('');
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [representativeSaving, setRepresentativeSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [mobileTab, setMobileTab] = useState<'posts' | 'edit' | 'location'>('edit');
+  const [representativeDragOver, setRepresentativeDragOver] = useState(false);
+  const [postListOpen, setPostListOpen] = useState(true);
+  const [unassignedPanelOpen, setUnassignedPanelOpen] = useState(true);
+  const [markerPanelOpen, setMarkerPanelOpen] = useState(false);
   const [markerPanelWidth, setMarkerPanelWidth] = useState(380);
   const markerResizeRef = useRef<{ x: number; width: number } | null>(null);
 
@@ -822,7 +962,11 @@ export default function TripEditPage() {
           endDate: tripData.endDate,
           isPublic: tripData.isPublic,
         });
-        setTripImages(loadedImages.length ? loadedImages : getTripImagesFromPosts(postData));
+        const normalizedImages = loadedImages.length ? loadedImages : getTripImagesFromPosts(postData);
+        const initialRepresentativeImageId = getRepresentativeImageId(normalizedImages, tripData.thumbnailUrl);
+        setTripImages(normalizedImages);
+        setRepresentativeImageId(initialRepresentativeImageId);
+        setSavedRepresentativeImageId(initialRepresentativeImageId);
         setPosts(postData);
         if (postData.length) setSelectedPostId(postData[0].id);
       })
@@ -833,24 +977,41 @@ export default function TripEditPage() {
   const handleSaveTrip = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        ...posts.map((post) => postApi.update(tripId, post.id, {
+      const updatedPosts = await Promise.all(posts.map(async (post) => {
+        const updatedPost = await postApi.update(tripId, post.id, {
           title: post.title,
           content: post.content,
           date: post.date,
-        })),
-        ...posts
-          .filter((post) => post.marker)
-          .map((post) => markerApi.update(post.id, post.marker!.id, {
-            placeName: post.marker!.placeName,
-            lat: post.marker!.lat,
-            lng: post.marker!.lng,
-            visitTime: alignMarkerVisitDate(post, post.marker!.visitTime),
-            source: post.marker!.source ?? 'AUTO',
-          })),
-      ]);
+        }) as Post;
+
+        if (!post.marker) {
+          return withDerivedPostTime(updatedPost);
+        }
+
+        const markerPayload = {
+          placeName: post.marker.placeName,
+          lat: post.marker.lat,
+          lng: post.marker.lng,
+          visitTime: alignMarkerVisitDate(post, post.marker.visitTime),
+          source: post.marker.source ?? (post.marker.id ? 'AUTO' : 'MANUAL'),
+        };
+        const updatedMarker = post.marker.id
+          ? await markerApi.update(post.id, post.marker.id, markerPayload)
+          : await markerApi.create(post.id, markerPayload);
+
+        return withMarkerPostTime(withDerivedPostTime(updatedPost), updatedMarker as Marker);
+      }));
+
       await tripApi.update(tripId, tripForm);
-      showToast('Trip, Post, Marker 정보가 모두 저장되었습니다.');
+
+      if (representativeImageId && representativeImageId !== savedRepresentativeImageId) {
+        const nextTrip = await tripApi.updateRepresentativeImage(tripId, representativeImageId) as Trip;
+        setTrip(nextTrip);
+        setSavedRepresentativeImageId(representativeImageId);
+      }
+
+      setPosts(sortPosts(updatedPosts));
+      showToast('변경사항이 저장되었습니다.');
       return true;
     } catch (error) {
       showToast(error instanceof Error ? error.message : '저장에 실패했습니다.', 'error');
@@ -868,11 +1029,17 @@ export default function TripEditPage() {
       const nextPosts = sortPosts(posts.filter((post) => post.id !== postId));
       setPosts(nextPosts);
       if (selectedPostId === postId) setSelectedPostId(nextPosts[0]?.id ?? null);
-      setTripImages((prev) => prev.map((image) => (
-        deletedPost?.images.some((postImage) => postImage.id === image.id)
-          ? { ...image, postId: undefined }
-          : image
-      )));
+      setTripImages((prev) => {
+        const nextImages = prev.map((image) => (
+          deletedPost?.images.some((postImage) => postImage.id === image.id)
+            ? { ...image, postId: undefined }
+            : image
+        ));
+        if (deletedPost?.images.some((postImage) => postImage.id === representativeImageId)) {
+          setRepresentativeImageId('');
+        }
+        return nextImages;
+      });
       showToast('Post가 삭제되었습니다.');
     } catch {
       showToast('삭제에 실패했습니다.', 'error');
@@ -896,18 +1063,7 @@ export default function TripEditPage() {
     }
   };
 
-  const handleRepresentativeImageChange = async (imageId: string) => {
-    setRepresentativeSaving(true);
-    try {
-      const updatedTrip = await tripApi.updateRepresentativeImage(tripId, imageId) as Trip;
-      setTrip(updatedTrip);
-      showToast('대표이미지가 변경되었습니다.');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : '대표이미지 변경에 실패했습니다.', 'error');
-    } finally {
-      setRepresentativeSaving(false);
-    }
-  };
+  const selectedRepresentativeImage = tripImages.find((image) => image.id === representativeImageId);
 
   const handleDeleteTrip = async () => {
     if (!confirm('이 Trip을 삭제하시겠습니까?')) return;
@@ -919,12 +1075,137 @@ export default function TripEditPage() {
     }
   };
 
-  const handlePublish = async () => {
-    const saved = await handleSaveTrip();
-    if (saved) {
-      router.push(`/trips/${tripId}`);
+  const unassignedImages = tripImages.filter((image) => !image.postId);
+
+  const handleAssignTripImage = async (imageId: string) => {
+    if (!selectedPost || selectedPost.images?.some((image) => image.id === imageId)) return;
+    try {
+      const image = await postApi.assignTripImage(tripId, selectedPost.id, imageId);
+      setPosts((prev) => sortPosts(prev.map((post) => (
+        post.id === selectedPost.id
+          ? { ...post, images: [...(post.images ?? []), image] }
+          : post
+      ))));
+      setTripImages((prev) => prev.map((tripImage) => (
+        tripImage.id === imageId ? { ...tripImage, postId: selectedPost.id } : tripImage
+      )));
+      showToast('이미지를 Post에 배치했습니다.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '이미지 배치에 실패했습니다.', 'error');
     }
   };
+
+  const handleUnassignPostImage = async (imageId: string) => {
+    if (!selectedPost) return;
+    const targetImage = selectedPost.images?.find((image) => image.id === imageId);
+    try {
+      const unassignedImage = await postApi.unassignTripImage(tripId, imageId);
+      setPosts((prev) => sortPosts(prev.map((post) => (
+        post.id === selectedPost.id
+          ? { ...post, images: (post.images ?? []).filter((image) => image.id !== imageId) }
+          : post
+      ))));
+      setTripImages((prev) => {
+        const exists = prev.some((image) => image.id === imageId);
+        if (!exists && targetImage) {
+          return [...prev, { ...toTripImage(targetImage), postId: undefined }];
+        }
+        return prev.map((image) => (
+          image.id === imageId ? { ...unassignedImage, postId: undefined } : image
+        ));
+      });
+      showToast('이미지를 미배치 상태로 옮겼습니다.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '이미지 연결 해제에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleRepresentativeImageDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setRepresentativeDragOver(false);
+
+    const imageId = event.dataTransfer.getData('application/triptrace-image-id') || event.dataTransfer.getData('text/plain');
+    if (!imageId) return;
+
+    const existsInTrip = tripImages.some((image) => image.id === imageId)
+      || posts.some((post) => post.images?.some((image) => image.id === imageId));
+    if (!existsInTrip) {
+      showToast('Trip에 속한 이미지만 대표 이미지로 지정할 수 있습니다.', 'error');
+      return;
+    }
+
+    const postImage = posts
+      .flatMap((post) => post.images?.map((image) => ({ image, postId: post.id })) ?? [])
+      .find(({ image }) => image.id === imageId);
+    if (postImage && !tripImages.some((image) => image.id === imageId)) {
+      setTripImages((prev) => [...prev, toTripImage(postImage.image, postImage.postId)]);
+    }
+
+    setRepresentativeImageId(imageId);
+    showToast('대표 이미지로 선택했습니다. 저장 버튼을 누르면 반영됩니다.');
+  };
+
+  const handlePostChange = (updated: Post) => {
+    const nextPost = withDerivedPostTime(updated);
+    setSelectedPostId(nextPost.id);
+    setPosts((prev) => sortPosts(prev.map((p) => (p.id === nextPost.id ? nextPost : p))));
+    setTripImages((prev) => {
+      const nextImages = new Map(prev.map((image) => [image.id, image]));
+      nextPost.images?.forEach((image) => {
+        nextImages.set(image.id, toTripImage(image, nextPost.id));
+      });
+
+      prev.forEach((image) => {
+        const wasLinkedToPost = image.postId === nextPost.id;
+        const stillLinkedToPost = nextPost.images?.some((postImage) => postImage.id === image.id);
+        if (wasLinkedToPost && !stillLinkedToPost) {
+          nextImages.set(image.id, { ...image, postId: undefined });
+        }
+      });
+
+      return Array.from(nextImages.values());
+    });
+  };
+
+  const handleMarkerUpdated = (marker: Marker | null) => {
+    if (!selectedPost) return;
+    setPosts((prev) => sortPosts(prev.map((p) => (
+      p.id === selectedPost.id ? withMarkerPostTime(p, marker) : p
+    ))));
+  };
+
+  const renderPostEditor = (showUnassignedImages = false) => (
+    selectedPost ? (
+      <PostEditor
+        tripId={tripId}
+        post={selectedPost}
+        unassignedImages={unassignedImages}
+        onToast={showToast}
+        onAssignTripImage={handleAssignTripImage}
+        onUnassignPostImage={handleUnassignPostImage}
+        onChange={handlePostChange}
+        showUnassignedImages={showUnassignedImages}
+      />
+    ) : (
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+        Post를 선택하세요.
+      </div>
+    )
+  );
+
+  const renderMarkerEditor = () => (
+    selectedPost ? (
+      <MarkerEditor
+        key={selectedPost.id}
+        post={selectedPost}
+        onMarkerUpdated={handleMarkerUpdated}
+      />
+    ) : (
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm p-4 text-center">
+        Post를 선택하면 마커를 편집할 수 있습니다.
+      </div>
+    )
+  );
 
   if (loading) {
     return (
@@ -935,7 +1216,7 @@ export default function TripEditPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex h-[calc(100dvh_-_56px_-_72px_-_env(safe-area-inset-bottom))] flex-col overflow-hidden md:h-[calc(100vh_-_64px)]">
       {toast && (
         <div className={`fixed right-6 top-20 z-50 rounded-lg px-4 py-2 text-sm font-semibold shadow-lg ${
           toast.tone === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 ring-1 ring-red-100'
@@ -944,236 +1225,270 @@ export default function TripEditPage() {
         </div>
       )}
 
-      {/* 상단 바 */}
-      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 flex-shrink-0">
-        <div>
-          <h1 className="font-bold text-gray-900 text-base">Trip 수정/편집</h1>
-          <p className="text-xs text-gray-400">자동 생성된 기록을 확인하고 편집한 내용을 수정하세요.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/trips/${tripId}`}
-            className="flex items-center gap-1 text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Eye size={14} /> 미리보기
-          </Link>
-          <button
-            onClick={handleDeleteTrip}
-            className="flex items-center gap-1 text-sm text-red-500 border border-red-100 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
-          >
-            <Trash2 size={14} /> 삭제
-          </button>
-          <button
-            onClick={handlePublish}
-            disabled={saving}
-            className="flex items-center gap-1 text-sm bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors"
-          >
-            <Save size={14} /> {saving ? '저장 중...' : '공개/저장'}
-          </button>
-        </div>
-      </div>
-
-      {/* Trip 기본 정보 바 */}
-      <div className="flex items-center gap-3 px-6 py-3 bg-white border-b border-gray-100 flex-shrink-0 flex-wrap">
-        <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-2 py-1.5">
-          <div className="h-10 w-10 overflow-hidden rounded-md bg-gray-200">
-            {trip?.thumbnailUrl ? (
-              <img src={trip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <ImageIcon size={14} className="text-gray-400" />
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-gray-400">대표 이미지</p>
-            <p className="max-w-24 truncate text-xs font-semibold text-gray-700">
-              {trip?.thumbnailUrl ? '자동 설정됨' : '없음'}
-            </p>
-          </div>
-        </div>
-        <div className="relative">
-          <select
-            value={tripImages.find((image) => image.thumbnailUrl === trip?.thumbnailUrl || image.url === trip?.thumbnailUrl)?.id ?? ''}
-            onChange={(event) => {
-              if (event.target.value) void handleRepresentativeImageChange(event.target.value);
+      {/* Trip 편집 헤더 */}
+      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3 md:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setRepresentativeDragOver(true);
             }}
-            disabled={representativeSaving || tripImages.length === 0}
-            className="max-w-[180px] rounded-lg border border-gray-200 bg-white px-3 py-1.5 pr-7 text-sm outline-none focus:border-green-500 disabled:opacity-60"
+            onDragLeave={() => setRepresentativeDragOver(false)}
+            onDrop={handleRepresentativeImageDrop}
+            className={`flex flex-shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${
+              representativeDragOver ? 'border-green-400 bg-green-50' : 'border-gray-100 bg-gray-50'
+            }`}
+            title="이미지를 끌어 대표 이미지로 지정"
           >
-            <option value="">{tripImages.length ? '대표이미지 선택' : '이미지 없음'}</option>
-            {tripImages.map((image) => (
-              <option key={image.id} value={image.id}>
-                {image.postId ? `Post 이미지 ${image.id}` : `미연결 이미지 ${image.id}`}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
-        {tripImages.length > 0 && (
-          <div className="flex max-w-[220px] gap-1 overflow-x-auto">
-            {tripImages.slice(0, 8).map((image) => (
-              <button
-                key={image.id}
-                type="button"
-                onClick={() => handleRepresentativeImageChange(image.id)}
-                disabled={representativeSaving}
-                className={`h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border-2 bg-gray-100 ${
-                  image.thumbnailUrl === trip?.thumbnailUrl || image.url === trip?.thumbnailUrl ? 'border-green-600' : 'border-white'
-                }`}
-                title={image.postId ? 'Post 이미지' : '미연결 이미지'}
-              >
-                <img src={image.thumbnailUrl || image.url} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
+            <div className="h-11 w-11 overflow-hidden rounded-md bg-gray-200">
+              {selectedRepresentativeImage?.thumbnailUrl || trip?.thumbnailUrl ? (
+                <img src={selectedRepresentativeImage?.thumbnailUrl ?? trip?.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <ImageIcon size={14} className="text-gray-400" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium text-gray-400">대표 이미지</p>
+              <p className="max-w-20 truncate text-xs font-semibold text-gray-700 sm:max-w-24">
+                {representativeDragOver ? '여기에 놓기' : selectedRepresentativeImage ? '선택됨' : trip?.thumbnailUrl ? '자동 설정됨' : '이미지 드롭'}
+              </p>
+            </div>
           </div>
-        )}
-        <input
-          value={tripForm.title}
-          onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })}
-          placeholder="여행 제목"
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500 min-w-[180px]"
-        />
-        <div className="relative">
-          <select
-            value={tripForm.country}
-            onChange={(e) => setTripForm({ ...tripForm, country: e.target.value })}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm appearance-none outline-none focus:border-green-500 pr-7"
-          >
-            <option value="">국가</option>
-            <option value="한국">한국</option>
-            <option value="일본">일본</option>
-            <option value="프랑스">프랑스</option>
-            <option value="미국">미국</option>
-            <option value="그리스">그리스</option>
-            <option value="베트남">베트남</option>
-            <option value="스페인">스페인</option>
-          </select>
-          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-gray-400">Trip 수정/편집</p>
+            <input
+              value={tripForm.title}
+              onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })}
+              placeholder="여행 제목"
+              className="mt-0.5 w-full min-w-0 border-0 border-b border-transparent bg-transparent px-0 py-0 text-lg font-bold text-gray-900 outline-none placeholder:text-gray-300 focus:border-green-500 sm:text-xl md:text-2xl"
+            />
+          </div>
         </div>
-        <input
-          value={tripForm.city}
-          onChange={(e) => setTripForm({ ...tripForm, city: e.target.value })}
-          placeholder="도시"
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500 min-w-[120px]"
-        />
-        <input
-          type="date"
-          value={tripForm.startDate}
-          onChange={(e) => setTripForm({ ...tripForm, startDate: e.target.value })}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500"
-        />
-        <input
-          type="date"
-          value={tripForm.endDate}
-          onChange={(e) => setTripForm({ ...tripForm, endDate: e.target.value })}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500"
-        />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTripForm({ ...tripForm, isPublic: !tripForm.isPublic })}
-            className={`relative w-10 h-5 rounded-full transition-colors ${tripForm.isPublic ? 'bg-green-600' : 'bg-gray-300'}`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${tripForm.isPublic ? 'translate-x-5' : ''}`} />
-          </button>
-          <span className="text-xs text-gray-600">{tripForm.isPublic ? '공개' : '비공개'}</span>
+          <div className="flex flex-shrink-0 items-center justify-end gap-2">
+            <Link
+              href={`/trips/${tripId}`}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 md:h-auto md:w-auto md:gap-1 md:px-3 md:py-1.5 md:text-sm"
+              title="미리보기"
+            >
+              <Eye size={14} /> <span className="hidden md:inline">미리보기</span>
+            </Link>
+            <button
+              onClick={handleDeleteTrip}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-500 transition-colors hover:bg-red-50 md:h-auto md:w-auto md:gap-1 md:px-3 md:py-1.5 md:text-sm"
+              title="삭제"
+            >
+              <Trash2 size={14} /> <span className="hidden md:inline">삭제</span>
+            </button>
+            <button
+              onClick={handleSaveTrip}
+              disabled={saving}
+              className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60 md:px-4 md:py-1.5"
+            >
+              <Save size={14} /> {saving ? '저장 중...' : '저장'}
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleSaveTrip}
-          disabled={saving}
-          className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-        >
-          전체 저장
-        </button>
+
+        <div className="mt-3 grid grid-cols-1 gap-2 md:flex md:items-center md:justify-between">
+          <div className="grid min-w-0 grid-cols-2 gap-2 md:flex md:items-center">
+          <div className="relative min-w-0 md:w-[104px] md:flex-shrink-0">
+            <select
+              value={tripForm.country}
+              onChange={(e) => setTripForm({ ...tripForm, country: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm appearance-none outline-none focus:border-green-500 pr-7"
+            >
+              <option value="">국가</option>
+              <option value="한국">한국</option>
+              <option value="일본">일본</option>
+              <option value="프랑스">프랑스</option>
+              <option value="미국">미국</option>
+              <option value="그리스">그리스</option>
+              <option value="베트남">베트남</option>
+              <option value="스페인">스페인</option>
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+          <input
+            value={tripForm.city}
+            onChange={(e) => setTripForm({ ...tripForm, city: e.target.value })}
+            placeholder="도시"
+            className="min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-500 md:w-[104px] md:flex-shrink-0"
+          />
+          <div className="col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-white px-2 py-1.5 md:flex-shrink-0">
+            <span className="text-[11px] font-medium text-gray-400">기간</span>
+            <input
+              type="date"
+              value={tripForm.startDate}
+              onChange={(e) => setTripForm({ ...tripForm, startDate: e.target.value })}
+              className="min-w-0 flex-1 border-0 bg-transparent px-1 text-xs outline-none md:w-[112px] md:flex-none"
+            />
+            <span className="text-xs text-gray-300">-</span>
+            <input
+              type="date"
+              value={tripForm.endDate}
+              onChange={(e) => setTripForm({ ...tripForm, endDate: e.target.value })}
+              className="min-w-0 flex-1 border-0 bg-transparent px-1 text-xs outline-none md:w-[112px] md:flex-none"
+            />
+          </div>
+          </div>
+          <div className="flex items-center gap-2 md:col-span-1">
+            <button
+              type="button"
+              onClick={() => setTripForm({ ...tripForm, isPublic: !tripForm.isPublic })}
+              className={`relative w-10 h-5 rounded-full transition-colors ${tripForm.isPublic ? 'bg-green-600' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${tripForm.isPublic ? 'translate-x-5' : ''}`} />
+            </button>
+            <span className="text-xs text-gray-600">{tripForm.isPublic ? '공개' : '비공개'}</span>
+          </div>
+        </div>
       </div>
 
-      {/* 3컬럼 편집 영역 */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* 컬럼 1 - Post 목록 */}
-        <div className="w-[240px] border-r border-gray-100 bg-white flex-shrink-0 overflow-hidden">
+      <div className="flex border-b border-gray-100 bg-white px-4 md:hidden">
+        {[
+          { id: 'posts', label: '기록' },
+          { id: 'edit', label: '작성' },
+          { id: 'location', label: '위치' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setMobileTab(tab.id as typeof mobileTab)}
+            className={`flex-1 border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${
+              mobileTab === tab.id
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-gray-400'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-hidden md:hidden">
+        {mobileTab === 'posts' && (
           <PostList
             posts={posts}
             selectedId={selectedPostId}
-            onSelect={(post) => setSelectedPostId(post.id)}
+            onSelect={(post) => {
+              setSelectedPostId(post.id);
+              setMobileTab('edit');
+            }}
             onDelete={handleDeletePost}
             onCreate={handleCreatePost}
           />
-        </div>
+        )}
+        {mobileTab === 'edit' && renderPostEditor(true)}
+        {mobileTab === 'location' && renderMarkerEditor()}
+      </div>
+
+      {/* 3컬럼 편집 영역 */}
+      <div className="hidden flex-1 overflow-hidden md:flex">
+        {/* 컬럼 1 - Post 목록 */}
+        {postListOpen ? (
+          <div className="w-[260px] border-r border-gray-100 bg-white flex-shrink-0 overflow-hidden">
+            <PostList
+              posts={posts}
+              selectedId={selectedPostId}
+              onSelect={(post) => setSelectedPostId(post.id)}
+              onDelete={handleDeletePost}
+              onCreate={handleCreatePost}
+              onCollapse={() => setPostListOpen(false)}
+            />
+          </div>
+        ) : (
+          <div className="flex w-14 flex-shrink-0 flex-col items-center border-r border-gray-100 bg-white py-3">
+            <button
+              type="button"
+              onClick={() => setPostListOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+              title="Post 목록 열기"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+            <span className="mt-4 [writing-mode:vertical-rl] text-[11px] font-semibold text-gray-400">
+            Post 목록
+          </span>
+          </div>
+        )}
+
+        {unassignedPanelOpen ? (
+          <div className="w-[220px] flex-shrink-0 overflow-hidden border-r border-gray-100 bg-gray-50/40">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">미배치 이미지</h3>
+                <p className="text-[11px] text-gray-400">{unassignedImages.length}장 대기 중</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUnassignedPanelOpen(false)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                title="미배치 이미지 접기"
+              >
+                <PanelLeftClose size={14} />
+              </button>
+            </div>
+            <div className="p-3">
+              <UnassignedImageShelf images={unassignedImages} onAssign={handleAssignTripImage} compact />
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-14 flex-shrink-0 flex-col items-center border-r border-gray-100 bg-white py-3">
+            <button
+              type="button"
+              onClick={() => setUnassignedPanelOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+              title="미배치 이미지 열기"
+            >
+              <ImageIcon size={16} />
+            </button>
+            <span className="mt-4 [writing-mode:vertical-rl] text-[11px] font-semibold text-gray-400">
+              미배치 이미지
+            </span>
+          </div>
+        )}
 
         {/* 컬럼 2 - Post 편집 */}
         <div className="flex-1 border-r border-gray-100 bg-white overflow-hidden">
-          {selectedPost ? (
-            <PostEditor
-              tripId={tripId}
-              post={selectedPost}
-              onToast={showToast}
-              onChange={(updated) => {
-                const nextPost = withDerivedPostTime(updated);
-                setSelectedPostId(nextPost.id);
-                setPosts((prev) => sortPosts(prev.map((p) => (p.id === nextPost.id ? nextPost : p))));
-                setTripImages((prev) => {
-                  const nextImages = new Map(prev.map((image) => [image.id, image]));
-                  nextPost.images?.forEach((image) => {
-                    nextImages.set(image.id, toTripImage(image, nextPost.id));
-                  });
-
-                  prev.forEach((image) => {
-                    const wasLinkedToPost = image.postId === nextPost.id;
-                    const stillLinkedToPost = nextPost.images?.some((postImage) => postImage.id === image.id);
-                    if (wasLinkedToPost && !stillLinkedToPost) {
-                      nextImages.set(image.id, { ...image, postId: undefined });
-                    }
-                  });
-
-                  return Array.from(nextImages.values());
-                });
-              }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              왼쪽에서 Post를 선택하세요.
-            </div>
-          )}
+          {renderPostEditor()}
         </div>
 
         {/* 컬럼 3 - Marker 편집 */}
         <div
-          className="relative bg-white flex-shrink-0 overflow-hidden"
-          style={{ width: markerPanelWidth }}
+          className="relative flex-shrink-0 overflow-hidden border-l border-gray-100 bg-white transition-[width] duration-200"
+          style={{ width: markerPanelOpen ? markerPanelWidth : 56 }}
         >
-          <div
-            onMouseDown={startMarkerPanelResize}
-            className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-green-100"
-            title="마커 편집 패널 크기 조절"
-          >
-            <span className="absolute left-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-full bg-gray-200" />
-          </div>
-          {selectedPost ? (
-            <MarkerEditor
-              key={selectedPost.id}
-              post={selectedPost}
-              onToast={showToast}
-              onMarkerUpdated={(marker) => {
-                if (!selectedPost) return;
-                setPosts((prev) => sortPosts(prev.map((p) => (
-                  p.id === selectedPost.id ? withMarkerPostTime(p, marker) : p
-                ))));
-              }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm p-4 text-center">
-              Post를 선택하면 마커를 편집할 수 있습니다.
+          {markerPanelOpen && (
+            <div
+              onMouseDown={startMarkerPanelResize}
+              className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-green-100"
+              title="마커 편집 패널 크기 조절"
+            >
+              <span className="absolute left-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-full bg-gray-200" />
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setMarkerPanelOpen((open) => !open)}
+            className={`absolute right-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 shadow-sm hover:bg-gray-50 ${
+              markerPanelOpen ? '' : 'left-1/2 right-auto -translate-x-1/2'
+            }`}
+            title={markerPanelOpen ? '위치 패널 닫기' : '위치 패널 열기'}
+          >
+            <MapPin size={15} />
+          </button>
+          {!markerPanelOpen ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-2 text-gray-400">
+              <MapPin size={18} className={selectedPost?.marker ? 'text-green-600' : 'text-gray-300'} />
+              <span className="[writing-mode:vertical-rl] text-[11px] font-medium tracking-normal">
+                위치
+              </span>
+            </div>
+          ) : renderMarkerEditor()}
         </div>
-      </div>
-
-      {/* 하단 안내 */}
-      <div className="px-6 py-2.5 bg-amber-50 border-t border-amber-100 flex-shrink-0">
-        <p className="text-xs text-amber-700">
-          변경 사항은 저장(공개/저장) 시 반영됩니다. 저장하지 않고 이동하면 최후 화면으로 되돌아옵니다.
-        </p>
       </div>
     </div>
   );
