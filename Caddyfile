@@ -1,0 +1,16 @@
+{$SITE_ADDR} {
+
+    @backend {
+        path /api/*
+        path /login/*
+        path /images/*
+    }
+    handle @backend {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+}

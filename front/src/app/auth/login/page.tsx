@@ -27,8 +27,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-[420px] p-8">
+    <div className="flex min-h-[calc(100dvh_-_56px_-_72px_-_env(safe-area-inset-bottom))] items-center justify-center px-4 py-6 md:min-h-screen">
+      <div className="w-full max-w-[420px] rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
         <p className="text-xs text-gray-400 mb-1">TripTrace</p>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">로그인</h1>
         <p className="text-sm text-gray-500 mb-6">나만의 여행 기록을 시작해보세요.</p>

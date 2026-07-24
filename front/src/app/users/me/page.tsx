@@ -15,8 +15,8 @@ function formatDateOnly(value?: string) {
 function toAbsoluteUrl(value?: string) {
   if (!value) return '';
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
-  return value.startsWith('/') ? `${base}${value}` : value;
+  const base = process.env.NEXT_PUBLIC_API_URL ?? '';
+  return value.startsWith('/') ? (base ? `${base}${value}` : value) : value;
 }
 
 export default function UserMePage() {
@@ -108,7 +108,7 @@ export default function UserMePage() {
 
   if (error || !user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-gray-500">{error || '사용자 정보를 불러올 수 없습니다.'}</p>
         <button
           onClick={() => router.push('/auth/login')}
@@ -124,7 +124,7 @@ export default function UserMePage() {
   const displayNickname = editing ? nickname : user.nickname;
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
+    <div className="mx-auto max-w-4xl px-4 py-5 sm:p-8">
       <button
         onClick={() => router.back()}
         className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
@@ -133,7 +133,7 @@ export default function UserMePage() {
         <span>사용자 정보</span>
       </button>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-gray-500 text-sm">내 계정 정보를 확인하고 관리할 수 있습니다.</p>
         {editing ? (
           <div className="flex gap-2">
@@ -168,9 +168,9 @@ export default function UserMePage() {
         </p>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex gap-10">
+      <div className="flex flex-col gap-8 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8 md:flex-row md:gap-10">
         {/* 왼쪽 - 프로필 */}
-        <div className="flex flex-col items-center min-w-[160px]">
+        <div className="flex min-w-0 flex-col items-center md:min-w-[160px]">
           <div className="relative w-28 h-28 mb-4">
             {displayImageUrl ? (
               <img
@@ -224,8 +224,8 @@ export default function UserMePage() {
         </div>
 
         {/* 오른쪽 - 정보 테이블 */}
-        <div className="flex-1">
-          <table className="w-full text-sm">
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
             <tbody>
               <tr className="border-b border-gray-50">
                 <td className="py-3 pr-6 text-gray-400 whitespace-nowrap w-40">아이디 (ID)</td>

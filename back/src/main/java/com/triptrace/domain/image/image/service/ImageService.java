@@ -105,7 +105,11 @@ public class ImageService {
         Image image = getByUrl(imageUrl);
         return ImageMapper.toServiceResponse(image);
     }
-
+    @Transactional(readOnly = true)
+    public List<ImageServiceResponse> findWithOwner(Long ownerId) {
+        List<Image> images = imageRepository.findByOwnerId(ownerId);
+        return images.stream().map(ImageMapper::toServiceResponse).toList();
+    }
     @Transactional(readOnly = true)
     public List<ImageServiceResponse> findByTripId(Trip trip) {
         List<Image> images = imageRepository.findByTripId(trip.getId());
@@ -146,5 +150,11 @@ public class ImageService {
             return false;
         }
         return post.getId().equals(image.getPost().getId());
+    }
+    @Transactional
+        public ImageServiceResponse unassign(Long ownerId, Long tripId, Long imageId) {
+        Image image = imageRepository.findByIdAndOwnerIdAndTripId(imageId,ownerId,tripId).orElseThrow(ImageExceptionCatalog::notFound);
+        image.modifyPost(null);
+        return  ImageMapper.toServiceResponse(image);
     }
 }

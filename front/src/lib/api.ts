@@ -1,6 +1,6 @@
 import type { PlaceCandidate } from '@/types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 type ApiResponse<T> = {
   resultCode: string;
@@ -54,7 +54,7 @@ function toDateTime(value?: string) {
 function toAssetUrl(value: unknown) {
   if (typeof value !== 'string' || !value) return '';
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  if (value.startsWith('/')) return `${BASE_URL}${value}`;
+  if (value.startsWith('/')) return BASE_URL ? `${BASE_URL}${value}` : value;
   return value;
 }
 
@@ -135,10 +135,42 @@ function normalizePlaceCandidate(candidate: Record<string, unknown>): PlaceCandi
 function normalizeTripImage(image: Record<string, unknown>) {
   return {
     id: String(image.id),
-    url: toAssetUrl(image.originalFileUrl ?? image.url ?? image.thumbnailUrl),
-    thumbnailUrl: toAssetUrl(image.thumbnailUrl ?? image.originalFileUrl ?? image.url),
+    url: toAssetUrl(image.originalFileUrl ?? image.originalUrl ?? image.url ?? image.thumbnailUrl),
+    thumbnailUrl: toAssetUrl(image.thumbnailUrl ?? image.originalFileUrl ?? image.originalUrl ?? image.url),
     filename: String(image.fileName ?? image.filename ?? image.originalFileUrl ?? image.id),
     postId: image.postId == null ? undefined : String(image.postId),
+  };
+}
+
+function normalizeAlbumPostImage(image: Record<string, unknown>) {
+  const url = toAssetUrl(image.originalFileUrl ?? image.originalUrl ?? image.url ?? image.thumbnailUrl);
+
+  return {
+    id: String(image.id),
+    url,
+    thumbnailUrl: toAssetUrl(image.thumbnailUrl ?? image.originalFileUrl ?? image.originalUrl ?? image.url),
+    filename: String(image.fileName ?? image.filename ?? image.originalFileUrl ?? image.originalUrl ?? image.id),
+    mimeType: typeof image.mimeType === 'string' ? image.mimeType : undefined,
+    capturedAt: typeof image.capturedAt === 'string' ? image.capturedAt : undefined,
+  };
+}
+
+function normalizeAlbumPost(post: Record<string, unknown>) {
+  const images = Array.isArray(post.images)
+    ? post.images.map((image) => normalizeAlbumPostImage(image as Record<string, unknown>))
+    : [];
+
+  return {
+    id: String(post.id),
+    tripId: String(post.tripId),
+    date: typeof post.date === 'string' ? post.date : '',
+    time: toTimeInput(post.time),
+    title: String(post.title ?? '제목 없는 기록'),
+    content: String(post.content ?? post.memo ?? ''),
+    images,
+    marker: normalizeMarker(post.marker as Record<string, unknown> | null | undefined),
+    createdAt: typeof post.createdAt === 'string' ? post.createdAt : undefined,
+    updatedAt: typeof post.updatedAt === 'string' ? post.updatedAt : undefined,
   };
 }
 
@@ -350,8 +382,10 @@ export const tripApi = {
   delete: (tripId: string) => request(`/api/v1/trips/${tripId}`, { method: 'DELETE' }),
 
   getImages: async (tripId: string) => {
-    const result = await request<unknown>(`/api/v1/trips/${tripId}/images`);
-    return getListData<Record<string, unknown>>(result).map(normalizeTripImage);
+    const result = await request<unknown>('/api/v1/images');
+    return getListData<Record<string, unknown>>(result)
+      .filter((image) => String(image.tripId) === String(tripId))
+      .map(normalizeTripImage);
   },
 
   updateRepresentativeImage: (tripId: string, imageId: string) =>
@@ -413,6 +447,11 @@ export const likeApi = {
 
 // ---------- Posts ----------
 export const postApi = {
+  getAlbumPosts: async () => {
+    const result = await request<unknown>('/api/v1/posts');
+    return getListData<Record<string, unknown>>(result).map(normalizeAlbumPost);
+  },
+
   getList: async (tripId: string) => {
     const posts = await request<Record<string, unknown>[]>(`/api/v1/trips/${tripId}/posts`);
     return posts.map(normalizePost);
@@ -483,6 +522,16 @@ export const postApi = {
 
   deleteImage: (tripId: string, postId: string, imageId: string) =>
     request(`/api/v1/trips/${tripId}/posts/${postId}/images/${imageId}`, { method: 'DELETE' }),
+
+  assignTripImage: (tripId: string, postId: string, imageId: string) =>
+    request<Record<string, unknown>>(`/api/v1/trips/${tripId}/images?postId=${postId}&imageId=${imageId}`, {
+      method: 'PATCH',
+    }).then(normalizePostImage),
+
+  unassignTripImage: (tripId: string, imageId: string) =>
+    request<Record<string, unknown>>(`/api/v1/trips/${tripId}/images/${imageId}/unassign`, {
+      method: 'PATCH',
+    }).then(normalizeTripImage),
 };
 
 // ---------- Markers ----------

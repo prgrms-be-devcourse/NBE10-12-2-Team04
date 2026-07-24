@@ -34,6 +34,11 @@ public class PostService {
     private final ImageRepository imageRepository;
     private final MarkerRepository markerRepository;
 
+    @Transactional(readOnly = true)
+    public List<PostResponse> getPosts(Long ownerId) {
+        return toResponses(postRepository.findByOwnerId(ownerId));
+    }
+
     @Transactional
     public PostResponse create(Long tripId, Long ownerId, PostCreateRequest request) {
         Trip trip = tripRepository.findById(tripId)

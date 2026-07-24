@@ -40,6 +40,28 @@ export interface TripImage {
   postId?: string;
 }
 
+export interface AlbumPostImage {
+  id: string;
+  url: string;
+  thumbnailUrl: string;
+  filename: string;
+  mimeType?: string;
+  capturedAt?: string;
+}
+
+export interface AlbumPost {
+  id: string;
+  tripId: string;
+  date: string;
+  time?: string;
+  title: string;
+  content: string;
+  images: AlbumPostImage[];
+  marker?: Marker;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Post {
   id: string;
   tripId: string;

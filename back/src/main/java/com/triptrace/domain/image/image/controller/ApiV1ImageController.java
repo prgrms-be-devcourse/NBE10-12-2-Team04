@@ -1,5 +1,7 @@
 package com.triptrace.domain.image.image.controller;
 
+import com.triptrace.domain.image.image.application.ImageSearchUseCase;
+import com.triptrace.domain.image.image.dto.response.ImageResponse;
 import com.triptrace.domain.image.image.dto.response.ImageUploadResponse;
 import com.triptrace.domain.image.image.application.ImageDeleteUseCase;
 import com.triptrace.domain.image.image.application.ImageModifyUseCase;
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.html.HTMLDocument;
 
 import java.util.List;
 
@@ -19,6 +22,7 @@ public class ApiV1ImageController {
     private final ImageUploadUseCase imageUploadUseCase;
     private final ImageDeleteUseCase imageDeleteUseCase;
     private final ImageModifyUseCase imageModifyUseCase;
+    private final ImageSearchUseCase imageSearchUseCase;
 
     @PostMapping("/trips/{tripId}/images")
     public RsData<List<ImageUploadResponse>> upload(
@@ -101,6 +105,26 @@ public class ApiV1ImageController {
             "200-1",
             "수정 되었습니다.",
             imageModifyUseCase.modifyById(ownerId, tripId, postId, imageId)
+        );
+    }
+
+
+    @GetMapping("/images")
+    public RsData<List<ImageResponse>> list(
+        @AuthenticationPrincipal Long ownerId) {
+        return new RsData<>("200-1","SUCCESS", imageSearchUseCase.getImages(ownerId));
+    }
+
+    @PatchMapping("/trips/{tripId}/images/{imageId}/unassign")
+    public RsData<?> unassign(
+        @AuthenticationPrincipal Long ownerId,
+        @PathVariable Long tripId,
+        @PathVariable Long imageId
+    ){
+        return new RsData<>(
+            "200-1",
+            "수정 되었습니다.",
+            imageModifyUseCase.unassign(ownerId, tripId, imageId)
         );
     }
 }

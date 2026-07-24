@@ -36,6 +36,7 @@ public class TripAutoRecordService {
 
     // 같은 날짜 안에서도 클러스터 첫 사진과 2시간을 넘게 차이나면 다른 묶음으로 분리
     private static final long CLUSTER_TIME_GAP_MINUTES = 120;
+    private static final int MARKER_COORDINATE_SCALE = 7;
 
     private final TripRepository tripRepository;
     private final ImageRepository imageRepository;
@@ -224,8 +225,8 @@ public class TripAutoRecordService {
     }
 
     private BigDecimal truncateCoordinate(BigDecimal coordinate) {
-        // Marker 중심 좌표는 화면 표시/검색 기준으로 소수점 4자리까지만 남기고 버림.
-        return coordinate.setScale(4, RoundingMode.DOWN);
+        // Marker 중심 좌표는 이미지 GPS 공개 정밀도와 동일하게 소수점 7자리까지만 남기고 버림.
+        return coordinate.setScale(MARKER_COORDINATE_SCALE, RoundingMode.DOWN);
     }
 
     private void validateOwner(Trip trip, Long ownerId) {

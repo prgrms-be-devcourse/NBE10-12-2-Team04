@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapPin, Home, User, Settings, Images } from 'lucide-react';
+import { MapPin, Home, User, Settings, Image } from 'lucide-react';
 
 const navItems = [
   { href: '/', icon: Home, label: '홈' },
-  { href: '/trips', icon: Images, label: '내 Trip' },
+  { href: '/photos', icon: Image, label: '앨범' },
   { href: '/users/me', icon: User, label: '내 정보' },
 ];
 
@@ -14,7 +14,8 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[72px] bg-white border-r border-gray-200 flex flex-col items-center py-4 z-40">
+    <>
+    <aside className="fixed left-0 top-0 z-40 hidden h-full w-[72px] flex-col items-center border-r border-gray-200 bg-white py-4 md:flex">
       <Link href="/" className="mb-6">
         <div className="w-10 h-10 flex items-center justify-center rounded-2xl border border-gray-200 text-gray-900 shadow-sm">
           <MapPin size={22} strokeWidth={2.3} />
@@ -50,5 +51,28 @@ export default function Sidebar() {
         <Settings size={20} />
       </Link>
     </aside>
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-3 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur md:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
+        {navItems.map(({ href, icon: Icon, label }) => {
+          const isActive =
+            href === '/' ? pathname === '/' : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors ${
+                isActive
+                  ? 'bg-emerald-50 text-emerald-600'
+                  : 'text-gray-400 active:bg-gray-100'
+              }`}
+            >
+              <Icon size={20} />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+    </>
   );
 }

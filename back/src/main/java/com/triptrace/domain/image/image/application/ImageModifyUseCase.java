@@ -31,4 +31,10 @@ public class ImageModifyUseCase {
         }
         return imageService.modifyPost(owner, trip, post, imageId);
     }
+
+    public ImageServiceResponse unassign(Long ownerId, Long tripId, Long imageId) {
+        ImageServiceResponse imageServiceResponse = imageService.unassign(ownerId,tripId, imageId);
+        return imageServiceResponse;
+
+    }
 }

@@ -537,7 +537,7 @@ function DayTabs({
   onSelect: (d: string) => void;
 }) {
   return (
-    <div className="flex gap-1 border-b border-gray-100 px-4">
+    <div className="flex gap-1 overflow-x-auto border-b border-gray-100 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {days.map((day, i) => (
         <button
           key={day}
@@ -568,7 +568,7 @@ function TimelineItem({ post, active }: { post: Post; active: boolean }) {
         <div className="w-px flex-1 bg-gray-200 mt-1" />
       </div>
 
-      <div className="flex-1 pb-2">
+      <div className="min-w-0 flex-1 pb-2">
         <p className="text-xs text-gray-400 mb-0.5">{post.time ?? '시간 미정'}</p>
         <p className="font-semibold text-gray-900 text-sm">{post.title}</p>
         <p className="text-xs text-gray-500 mt-1 line-clamp-3">{content}</p>
@@ -579,7 +579,7 @@ function TimelineItem({ post, active }: { post: Post; active: boolean }) {
         )}
         {/* 이미지 그리드 */}
         {images.length > 0 && (
-          <div className="mt-2 flex h-44 gap-2 overflow-x-auto pb-1">
+          <div className="mt-2 flex h-36 gap-2 overflow-x-auto pb-1 sm:h-44">
             {images.map((img) =>
               img.url ? (
                 <img key={img.id} src={img.url} alt="" className="h-full w-auto max-w-none rounded-md object-cover" />
@@ -743,6 +743,12 @@ export default function TripDetailPage() {
     window.addEventListener('mouseup', endSheetDrag);
   };
 
+  const startSheetTouch = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    dragRef.current = { y: touch.clientY, top: sheetTop };
+  };
+
   const moveSheetDrag = (event: MouseEvent) => {
     if (!dragRef.current) return;
     const minTop = mapExpanded ? 132 : 160;
@@ -755,6 +761,16 @@ export default function TripDetailPage() {
     dragRef.current = null;
     window.removeEventListener('mousemove', moveSheetDrag);
     window.removeEventListener('mouseup', endSheetDrag);
+  };
+
+  const moveSheetTouch = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    const minTop = mapExpanded ? 104 : 132;
+    const maxTop = window.innerHeight - 220;
+    const next = dragRef.current.top + touch.clientY - dragRef.current.y;
+    setSheetTop(Math.max(minTop, Math.min(maxTop, next)));
   };
 
   if (loading) {
@@ -783,7 +799,7 @@ export default function TripDetailPage() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] relative overflow-hidden bg-gray-50">
+    <div className="relative flex h-[calc(100dvh_-_56px_-_72px_-_env(safe-area-inset-bottom))] flex-col overflow-hidden bg-gray-50 md:h-[calc(100vh_-_64px)]">
       {/* 지도 (배경) */}
       <div className="absolute inset-0 z-0">
         <TripMap
@@ -798,25 +814,25 @@ export default function TripDetailPage() {
       </div>
 
       {/* 상단 네비 */}
-      <div className="absolute left-5 right-5 top-6 z-[80] flex items-center justify-between">
+      <div className="absolute left-3 right-3 top-4 z-[80] flex items-start justify-between gap-2 sm:left-5 sm:right-5 sm:top-6">
         <button onClick={() => router.back()} className="w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:bg-gray-50 transition-colors">
           <ArrowLeft size={16} />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={toggleMapExpanded}
-            className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow transition-colors hover:bg-gray-50 sm:px-3"
           >
             {mapExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
             {mapExpanded ? '지도 줄이기' : '지도 펼치기'}
           </button>
           {isOwner && (
             <>
-              <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-gray-50 transition-colors">
-                <Pencil size={12} /> 수정/편집
+              <Link href={`/trips/${tripId}/edit`} className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 shadow transition-colors hover:bg-gray-50 sm:px-3">
+                <Pencil size={12} /> <span className="hidden sm:inline">수정/편집</span>
               </Link>
-              <button onClick={handleDeleteTrip} className="flex items-center gap-1 bg-white text-red-500 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-red-50 transition-colors">
-                <Trash2 size={12} /> 삭제
+              <button onClick={handleDeleteTrip} className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-xs font-semibold text-red-500 shadow transition-colors hover:bg-red-50 sm:px-3">
+                <Trash2 size={12} /> <span className="hidden sm:inline">삭제</span>
               </button>
             </>
           )}
@@ -834,25 +850,31 @@ export default function TripDetailPage() {
         style={{ top: sheetTop }}
       >
           {/* 드래그 핸들 */}
-          <div onMouseDown={startSheetDrag} className="relative z-10 flex shrink-0 cursor-grab justify-center bg-white px-5 pt-3 active:cursor-grabbing">
+          <div
+            onMouseDown={startSheetDrag}
+            onTouchStart={startSheetTouch}
+            onTouchMove={moveSheetTouch}
+            onTouchEnd={endSheetDrag}
+            className="relative z-10 flex shrink-0 cursor-grab touch-none justify-center bg-white px-5 pt-3 active:cursor-grabbing"
+          >
             <span className="h-1.5 w-12 rounded-full bg-gray-300" />
           </div>
-          <div className="flex justify-between items-center px-5 pt-3 pb-2">
-            <div className="flex gap-3 items-start">
-              <div className="w-20 h-20 overflow-hidden rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 flex-shrink-0">
+          <div className="flex flex-col gap-3 px-4 pb-2 pt-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 sm:h-20 sm:w-20">
                 {trip.thumbnailUrl && (
                   <img src={trip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                 )}
               </div>
-              <div>
-                <h2 className="font-bold text-gray-900 text-base leading-tight">{trip.title}</h2>
-                <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+              <div className="min-w-0">
+                <h2 className="line-clamp-2 text-base font-bold leading-tight text-gray-900">{trip.title}</h2>
+                <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
                   <MapPin size={10} /> {trip.city}, {trip.country}
                 </p>
-                <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
                   <Calendar size={10} /> {trip.startDate} ~ {trip.endDate}
                 </p>
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className="flex items-center gap-0.5 text-xs text-gray-400">
                     {trip.author?.profileImageUrl ? (
                       <img src={trip.author.profileImageUrl} alt="" className="w-4 h-4 rounded-full bg-gray-200" />
@@ -870,7 +892,7 @@ export default function TripDetailPage() {
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center justify-end gap-2 sm:flex-col sm:items-end">
               <button
                 onClick={handleLike}
                 className={`flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-full border transition-colors ${

@@ -43,18 +43,18 @@ export default function Header({ rightSlot }: HeaderProps) {
   }, [pathname]);
 
   return (
-    <header className="fixed top-0 left-[72px] right-0 h-[64px] bg-white/95 backdrop-blur border-b border-gray-200 flex items-center px-8 z-30">
-      <Link href="/" className="text-lg font-bold text-gray-900 mr-auto">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-[56px] items-center border-b border-gray-200 bg-white/95 px-4 backdrop-blur md:left-[72px] md:h-[64px] md:px-8">
+      <Link href="/" className="mr-auto text-base font-bold text-gray-900 md:text-lg">
         TripTrace
       </Link>
 
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {rightSlot}
         {loggedIn ? (
           <>
             <Link
               href="/auth/logout"
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              className="hidden h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 sm:flex"
             >
               <LogOut size={15} />
               로그아웃
@@ -68,13 +68,13 @@ export default function Header({ rightSlot }: HeaderProps) {
               ) : (
                 <User size={15} />
               )}
-              내정보
+              <span className="hidden sm:inline">내정보</span>
             </Link>
           </>
         ) : (
           <Link
             href="/auth/login"
-            className="flex h-9 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:px-4"
           >
             로그인
           </Link>
